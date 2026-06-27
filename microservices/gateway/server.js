@@ -27,50 +27,26 @@ const CHAT_SERVICE_URL = process.env.CHAT_SERVICE_URL || 'http://localhost:5003'
 console.log(`Gateway: Routing auth requests to ${AUTH_SERVICE_URL}`);
 console.log(`Gateway: Routing chat & socket requests to ${CHAT_SERVICE_URL}`);
 
-// Auth Service routes proxy
-app.use('/api/auth', createProxyMiddleware({
+// Auth Service proxy (preserves prefixes by mounting at root with pathFilter)
+app.use(createProxyMiddleware({
   target: AUTH_SERVICE_URL,
   changeOrigin: true,
-  logLevel: 'debug'
+  pathFilter: ['/api/auth', '/api/profile', '/api/admin']
 }));
 
-app.use('/api/profile', createProxyMiddleware({
-  target: AUTH_SERVICE_URL,
-  changeOrigin: true,
-  logLevel: 'debug'
-}));
-
-app.use('/api/admin', createProxyMiddleware({
-  target: AUTH_SERVICE_URL,
-  changeOrigin: true,
-  logLevel: 'debug'
-}));
-
-// Chat & Websockets Service routes proxy
-app.use('/api/friends', createProxyMiddleware({
+// Chat & Websockets REST routes proxy (preserves prefixes)
+app.use(createProxyMiddleware({
   target: CHAT_SERVICE_URL,
   changeOrigin: true,
-  logLevel: 'debug'
+  pathFilter: ['/api/friends', '/api/snaps', '/api/notifications']
 }));
 
-app.use('/api/snaps', createProxyMiddleware({
-  target: CHAT_SERVICE_URL,
-  changeOrigin: true,
-  logLevel: 'debug'
-}));
-
-app.use('/api/notifications', createProxyMiddleware({
-  target: CHAT_SERVICE_URL,
-  changeOrigin: true,
-  logLevel: 'debug'
-}));
-
-// Websocket connection proxy (crucial to enable ws: true and matching paths)
-app.use('/socket.io', createProxyMiddleware({
+// Websocket connection proxy (handles WS handshake at root)
+app.use(createProxyMiddleware({
   target: CHAT_SERVICE_URL,
   changeOrigin: true,
   ws: true,
-  logLevel: 'debug'
+  pathFilter: '/socket.io'
 }));
 
 // Serve static uploads
