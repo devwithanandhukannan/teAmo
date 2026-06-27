@@ -83,6 +83,7 @@ export default function MatchPage() {
   const chatBottomRef = useRef<HTMLDivElement>(null);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const pendingSignalsRef = useRef<any[]>([]);
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
 
@@ -217,7 +218,11 @@ export default function MatchPage() {
 
     socket.on('signal', async ({ signalData }) => {
       const pc = peerConnectionRef.current;
-      if (!pc) return;
+      if (!pc || (!pc.remoteDescription && signalData.candidate)) {
+        // Queue candidate if remote description is not set yet, or if peer connection is not ready
+        pendingSignalsRef.current.push(signalData);
+        return;
+      }
 
       try {
         if (signalData.offer) {
@@ -231,7 +236,7 @@ export default function MatchPage() {
           await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
         }
       } catch (err) {
-        console.error(err);
+        console.error('WebRTC signaling error:', err);
       }
     });
 
@@ -261,6 +266,32 @@ export default function MatchPage() {
     };
   }, [socket, mode, activeGroup]);
 
+  // Process any WebRTC signals that arrived before connection was fully initialized
+  const processPendingSignals = async (pc: RTCPeerConnection) => {
+    while (pendingSignalsRef.current.length > 0) {
+      const signalData = pendingSignalsRef.current.shift();
+      try {
+        if (signalData.offer) {
+          await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          if (socket) socket.emit('signal', { signalData: { answer } });
+        } else if (signalData.answer) {
+          await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
+        } else if (signalData.candidate) {
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+          } else {
+            pendingSignalsRef.current.push(signalData); // Re-queue if remoteDesc is still not set
+            break;
+          }
+        }
+      } catch (err) {
+        console.error('Error processing queued signal:', err);
+      }
+    }
+  };
+
   // Media peer connection logic
   const startMediaAndCall = async (isCaller: boolean) => {
     try {
@@ -273,9 +304,12 @@ export default function MatchPage() {
       const pc = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
       });
-      peerConnectionRef.current = pc;
-
+      
+      // Add tracks before running pending signals
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+      peerConnectionRef.current = pc;
+      await processPendingSignals(pc);
 
       pc.ontrack = (event) => {
         if (remoteVideoRef.current && event.streams[0]) {
@@ -305,6 +339,7 @@ export default function MatchPage() {
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
+    pendingSignalsRef.current = [];
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
       localStreamRef.current = null;

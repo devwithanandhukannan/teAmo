@@ -67,6 +67,7 @@ export default function FriendsPage() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const pendingCallSignalsRef = useRef<any[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
@@ -221,6 +222,7 @@ export default function FriendsPage() {
       if (pc) {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         setCallState('active');
+        await processPendingCallSignals(pc);
       }
     });
 
@@ -235,7 +237,13 @@ export default function FriendsPage() {
 
     socket.on('signal', async ({ signalData }) => {
       const pc = pcRef.current;
-      if (pc && signalData.candidate) {
+      if (!pc || (!pc.remoteDescription && signalData.candidate)) {
+        // Queue candidates arriving before remote description is ready
+        pendingCallSignalsRef.current.push(signalData);
+        return;
+      }
+      
+      if (signalData.candidate) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
         } catch (err) {
@@ -252,6 +260,24 @@ export default function FriendsPage() {
       socket.off('signal');
     };
   }, [socket]);
+
+  const processPendingCallSignals = async (pc: RTCPeerConnection) => {
+    while (pendingCallSignalsRef.current.length > 0) {
+      const signalData = pendingCallSignalsRef.current.shift();
+      if (signalData.candidate) {
+        try {
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+          } else {
+            pendingCallSignalsRef.current.push(signalData);
+            break;
+          }
+        } catch (err) {
+          console.error('Error processing queued call signal:', err);
+        }
+      }
+    }
+  };
 
   const startCall = async (friend: Friend) => {
     if (!socket) return;
@@ -330,6 +356,7 @@ export default function FriendsPage() {
       await pc.setLocalDescription(answer);
 
       socket.emit('accept_call', { toUserId: callPartner._id, answer });
+      await processPendingCallSignals(pc);
 
       setTimeout(() => {
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
@@ -360,6 +387,7 @@ export default function FriendsPage() {
       pcRef.current.close();
       pcRef.current = null;
     }
+    pendingCallSignalsRef.current = [];
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
