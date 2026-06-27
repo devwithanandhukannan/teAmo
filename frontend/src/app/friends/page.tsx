@@ -62,6 +62,7 @@ export default function FriendsPage() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
+  const [callConnected, setCallConnected] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -69,6 +70,12 @@ export default function FriendsPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const pendingCallSignalsRef = useRef<any[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const socketRef = useRef(socket);
+  const callPartnerRef = useRef(callPartner);
+
+  // Keep refs in sync
+  useEffect(() => { socketRef.current = socket; }, [socket]);
+  useEffect(() => { callPartnerRef.current = callPartner; }, [callPartner]);
 
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
 
@@ -108,11 +115,26 @@ export default function FriendsPage() {
     }));
   }, [isMuted, isCamOff]);
 
-  // Connect listeners to bottom macOS Dock events
+  // Dock listeners — use refs to avoid stale closures
   useEffect(() => {
-    const handleDockMuteAudio = () => toggleMute();
-    const handleDockMuteVideo = () => toggleCam();
-    const handleDockExit = () => endActiveCall();
+    const handleDockMuteAudio = () => {
+      if (streamRef.current) {
+        const track = streamRef.current.getAudioTracks()[0];
+        if (track) { track.enabled = !track.enabled; setIsMuted(!track.enabled); }
+      }
+    };
+    const handleDockMuteVideo = () => {
+      if (streamRef.current) {
+        const track = streamRef.current.getVideoTracks()[0];
+        if (track) { track.enabled = !track.enabled; setIsCamOff(!track.enabled); }
+      }
+    };
+    const handleDockExit = () => {
+      const s = socketRef.current;
+      const p = callPartnerRef.current;
+      if (s && p) s.emit('end_call', { toUserId: p._id });
+      closeCall();
+    };
 
     window.addEventListener('dock-mute-audio', handleDockMuteAudio);
     window.addEventListener('dock-mute-video', handleDockMuteVideo);
@@ -123,7 +145,7 @@ export default function FriendsPage() {
       window.removeEventListener('dock-mute-video', handleDockMuteVideo);
       window.removeEventListener('dock-exit', handleDockExit);
     };
-  }, [socket, callState, callPartner, isMuted, isCamOff]);
+  }, []); // Empty — safe because we use refs
 
   // WhatsApp-style message logs retrieval on friend selection
   useEffect(() => {
@@ -222,6 +244,7 @@ export default function FriendsPage() {
       if (pc) {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         setCallState('active');
+        setCallConnected(false);
         await processPendingCallSignals(pc);
       }
     });
@@ -279,46 +302,65 @@ export default function FriendsPage() {
     }
   };
 
+  const createPeerConnection = (s: any) => {
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ],
+      iceCandidatePoolSize: 10
+    });
+
+    // Set handlers BEFORE assigning to ref
+    pc.ontrack = (event) => {
+      if (remoteVideoRef.current && event.streams[0]) {
+        remoteVideoRef.current.srcObject = event.streams[0];
+        setCallConnected(true);
+      }
+    };
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate && s) {
+        s.emit('signal', { signalData: { candidate: event.candidate } });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed') {
+        pc.restartIce();
+      }
+    };
+
+    return pc;
+  };
+
   const startCall = async (friend: Friend) => {
     if (!socket) return;
     setCallPartner(friend);
+    setCallConnected(false);
     setCallState('calling');
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: { echoCancellation: true, noiseSuppression: true }
+      });
       streamRef.current = stream;
       setLocalStream(stream);
-
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-      });
+      const pc = createPeerConnection(socket);
+      stream.getTracks().forEach(track => pc.addTrack(track, stream));
       pcRef.current = pc;
 
-      stream.getTracks().forEach(track => pc.addTrack(track, stream));
-
-      pc.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-        }
-      };
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('signal', { signalData: { candidate: event.candidate } });
-        }
-      };
-
-      const offer = await pc.createOffer();
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
       await pc.setLocalDescription(offer);
-
       socket.emit('call_user', { toUserId: friend._id, offer });
 
     } catch (error) {
       console.error(error);
       closeCall();
-      showToast('Call failed. Microphone/camera blocked.');
+      showToast('Call failed. Check camera/mic permissions.');
     }
   };
 
@@ -326,41 +368,32 @@ export default function FriendsPage() {
     if (!socket || !callPartner || !incomingCallOffer) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: { echoCancellation: true, noiseSuppression: true }
+      });
       streamRef.current = stream;
       setLocalStream(stream);
-
+      setCallConnected(false);
       setCallState('active');
 
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-      });
-      pcRef.current = pc;
-
+      const pc = createPeerConnection(socket);
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-      pc.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-        }
-      };
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('signal', { signalData: { candidate: event.candidate } });
-        }
-      };
-
+      // Set remote description BEFORE assigning to ref
       await pc.setRemoteDescription(new RTCSessionDescription(incomingCallOffer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
+      // Assign ref only after remote desc is set
+      pcRef.current = pc;
+
       socket.emit('accept_call', { toUserId: callPartner._id, answer });
+
+      // Drain queued candidates
       await processPendingCallSignals(pc);
 
-      setTimeout(() => {
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      }, 500);
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
     } catch (error) {
       console.error(error);
@@ -393,9 +426,12 @@ export default function FriendsPage() {
       streamRef.current = null;
     }
     setLocalStream(null);
+    setCallConnected(false);
     setCallPartner(null);
     setIncomingCallOffer(null);
     setCallState('idle');
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
   };
 
   const handleSendDM = (e: React.FormEvent) => {

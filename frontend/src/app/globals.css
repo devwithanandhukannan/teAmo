@@ -178,3 +178,21 @@ body {
 .owl-neon {
   animation: owl-glow 2s ease-in-out infinite;
 }
+
+/* Rich notification toast — slide in from right */
+@keyframes slideInFromRight {
+  0% { transform: translateX(120%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+/* Full-page like flash */
+@keyframes likeFlash {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.like-flash-overlay {
+  animation: likeFlash 2s ease-out forwards;
+}
