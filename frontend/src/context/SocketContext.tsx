@@ -254,6 +254,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       window.location.href = '/login';
     });
 
+    // Real-time notification updates
+    newSocket.on('new_notification', (notification) => {
+      setNotifications(prev => [notification, ...prev]);
+      window.dispatchEvent(new CustomEvent('show-system-notification', { detail: notification }));
+    });
+
     // Nearby Connection Request listeners
     newSocket.on('nearby_request_received', ({ fromUser }) => {
       setIncomingRequest(fromUser);

@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { Snap } from '../models/Snap.js';
 import { Friendship } from '../models/Friendship.js';
-import { Notification } from '../models/Notification.js';
+import { createAndSendNotification } from '../services/notificationService.js';
 
 // Multer Local Storage Configuration
 const storage = multer.diskStorage({
@@ -64,7 +64,7 @@ export const createSnap = async (req, res) => {
     );
 
     for (const friendId of friendIds) {
-      await Notification.create({
+      await createAndSendNotification({
         recipient: friendId,
         sender: req.user._id,
         type: 'new_snap',

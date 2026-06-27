@@ -2,8 +2,8 @@ import { User } from '../models/User.js';
 import { Friendship } from '../models/Friendship.js';
 import { Like } from '../models/Like.js';
 import { Message } from '../models/Message.js';
-import { Notification } from '../models/Notification.js';
 import { redisClient } from '../config/db.js';
+import { createAndSendNotification } from '../services/notificationService.js';
 
 // Follow or Like a matched opponent
 export const followUser = async (req, res) => {
@@ -51,14 +51,14 @@ export const followUser = async (req, res) => {
       await Like.findByIdAndDelete(opponentLike._id);
 
       // Create notifications for both
-      await Notification.create({
+      await createAndSendNotification({
         recipient: likedId,
         sender: likerId,
         type: 'friend_accept',
         message: `${req.user.username} liked you back! You are now friends.`
       });
 
-      await Notification.create({
+      await createAndSendNotification({
         recipient: likerId,
         sender: likedId,
         type: 'friend_accept',
@@ -76,7 +76,7 @@ export const followUser = async (req, res) => {
     );
 
     // Create follow notification
-    await Notification.create({
+    await createAndSendNotification({
       recipient: likedId,
       sender: likerId,
       type: 'friend_request',

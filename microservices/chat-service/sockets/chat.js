@@ -3,7 +3,7 @@ import { Friendship } from '../models/Friendship.js';
 import { Group } from '../models/Group.js';
 import { Setting } from '../models/Setting.js';
 import { Message } from '../models/Message.js';
-import { Notification } from '../models/Notification.js';
+import { createAndSendNotification } from '../services/notificationService.js';
 import { redisClient } from '../config/db.js';
 import { findMatchForUser, removeUserFromMatchingPool } from '../services/matchmaker.js';
 
@@ -168,11 +168,18 @@ export const handleSocketConnections = (io) => {
       await handleSkip(currentUserId);
     });
 
-    // WebRTC signaling forwards for matches
+    // WebRTC signaling forwards for matches & direct calls
     socket.on('signal', async ({ signalData }) => {
       if (!currentUserId) return;
       
-      const opponentId = await redisClient.hGet('active_matches', currentUserId);
+      // 1. Check active matchmaking match
+      let opponentId = await redisClient.hGet('active_matches', currentUserId);
+      
+      // 2. Fallback: Check active direct call between friends
+      if (!opponentId) {
+        opponentId = await redisClient.hGet('active_calls', currentUserId);
+      }
+      
       if (opponentId) {
         const opponentSocketId = await redisClient.hGet('online_sockets', opponentId);
         if (opponentSocketId) {
@@ -230,6 +237,10 @@ export const handleSocketConnections = (io) => {
     socket.on('call_user', async ({ toUserId, offer }) => {
       if (!currentUserId) return;
       
+      // Pair call in Redis so early signals/candidates can be routed
+      await redisClient.hSet('active_calls', currentUserId, toUserId);
+      await redisClient.hSet('active_calls', toUserId, currentUserId);
+      
       const recipientSocketId = await redisClient.hGet('online_sockets', toUserId);
       if (recipientSocketId) {
         const callerInfo = await User.findById(currentUserId).select('username avatarUrl');
@@ -253,6 +264,10 @@ export const handleSocketConnections = (io) => {
     socket.on('reject_call', async ({ toUserId }) => {
       if (!currentUserId) return;
       
+      // Clean call in Redis since call was declined
+      await redisClient.hDel('active_calls', currentUserId);
+      await redisClient.hDel('active_calls', toUserId);
+      
       const callerSocketId = await redisClient.hGet('online_sockets', toUserId);
       if (callerSocketId) {
         io.to(callerSocketId).emit('call_rejected');
@@ -261,6 +276,10 @@ export const handleSocketConnections = (io) => {
 
     socket.on('end_call', async ({ toUserId }) => {
       if (!currentUserId) return;
+      
+      // Clean call in Redis
+      await redisClient.hDel('active_calls', currentUserId);
+      await redisClient.hDel('active_calls', toUserId);
       
       const opponentSocketId = await redisClient.hGet('online_sockets', toUserId);
       if (opponentSocketId) {
@@ -352,14 +371,14 @@ export const handleSocketConnections = (io) => {
             const currentUser = await User.findById(currentUserId).select('username');
 
             if (fromUser && currentUser) {
-              await Notification.create({
+              await createAndSendNotification({
                 recipient: currentUserId,
                 sender: fromUserId,
                 type: 'friend_accept',
                 message: `${fromUser.username} connected with you! You are now friends.`
               });
 
-              await Notification.create({
+              await createAndSendNotification({
                 recipient: fromUserId,
                 sender: currentUserId,
                 type: 'friend_accept',
@@ -408,6 +427,17 @@ export const handleSocketConnections = (io) => {
         if (activeSocketId === socket.id) {
           await handleSkip(currentUserId);
           await removeUserFromMatchingPool(currentUserId);
+          
+          // Clean up any active call
+          const activeCallPeerId = await redisClient.hGet('active_calls', currentUserId);
+          if (activeCallPeerId) {
+            await redisClient.hDel('active_calls', currentUserId);
+            await redisClient.hDel('active_calls', activeCallPeerId);
+            const peerSocketId = await redisClient.hGet('online_sockets', activeCallPeerId);
+            if (peerSocketId) {
+              io.to(peerSocketId).emit('call_ended');
+            }
+          }
           
           await redisClient.hDel('online_sockets', currentUserId);
           await User.findByIdAndUpdate(currentUserId, { isOnline: false, lastActive: new Date() });

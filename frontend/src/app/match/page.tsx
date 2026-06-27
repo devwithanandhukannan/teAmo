@@ -448,7 +448,7 @@ export default function MatchPage() {
   const isLoungeConnected = matchState === 'connected' || matchState === 'group';
 
   return (
-    <div className={`min-h-screen pt-24 pb-20 flex flex-col items-center px-4 relative overflow-hidden transition duration-500 bg-[#000000]`}>
+    <div className={`min-h-screen pt-32 pb-36 flex flex-col items-center px-4 relative overflow-hidden transition duration-500 bg-[#000000]`}>
       
       {/* Incognito background graphics */}
       {incognitoMode ? (

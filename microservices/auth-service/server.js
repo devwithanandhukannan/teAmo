@@ -15,6 +15,13 @@ const PORT = process.env.PORT || 5004;
 
 // Middleware
 app.use(cors());
+
+// Request logger middleware
+app.use((req, res, next) => {
+  console.log(`[Auth Service] ${req.method} ${req.url}`);
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

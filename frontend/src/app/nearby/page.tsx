@@ -119,10 +119,39 @@ export default function NearbyPage() {
           }, 1500);
         }
       },
-      (err) => {
-        console.error(err);
-        setError('Location permission denied. Please allow location access to scan.');
-        setScanning(false);
+      async (err) => {
+        console.warn('Geolocation failed, falling back to mock coordinate for local testing:', err);
+        showToast('Location unavailable. Using simulated coordinates for testing.');
+        
+        // Mock coordinates (New York City center)
+        const lng = -73.935242;
+        const lat = 40.730610;
+        setCoords({ lng, lat });
+
+        const token = localStorage.getItem('token');
+        try {
+          const res = await fetch(`${backendUrl}/api/friends/scan`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ longitude: lng, latitude: lat, radius: distanceRadius })
+          });
+          const data = await res.json();
+          if (data.success) {
+            setNearbyUsers(data.nearbyUsers || []);
+          } else {
+            setError(data.message || 'Scan failed.');
+          }
+        } catch (fetchErr) {
+          console.error(fetchErr);
+          setError('Failed to contact nearby services.');
+        } finally {
+          setTimeout(() => {
+            setScanning(false);
+          }, 1500);
+        }
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -143,7 +172,7 @@ export default function NearbyPage() {
   };
 
   return (
-    <div className="min-h-screen pt-24 pb-8 px-4 flex flex-col items-center bg-[#030712] relative overflow-hidden">
+    <div className="min-h-screen pt-32 pb-36 px-4 flex flex-col items-center bg-[#030712] relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-500/10 rounded-full blur-[120px] pointer-events-none"></div>
 

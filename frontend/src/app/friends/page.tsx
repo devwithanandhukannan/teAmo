@@ -409,7 +409,7 @@ export default function FriendsPage() {
   const currentChatMsgs = selectedFriend ? (directMessages[selectedFriend._id] || []) : [];
 
   return (
-    <div className="min-h-screen pt-24 pb-20 px-4 flex flex-col items-center bg-[#000000] relative overflow-hidden">
+    <div className="min-h-screen pt-32 pb-36 px-4 flex flex-col items-center bg-[#000000] relative overflow-hidden">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-white/5 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">

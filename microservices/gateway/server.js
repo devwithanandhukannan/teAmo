@@ -15,6 +15,12 @@ const PORT = process.env.PORT || 5001;
 
 app.use(cors());
 
+// Request logger middleware
+app.use((req, res, next) => {
+  console.log(`[Gateway] ${req.method} ${req.url}`);
+  next();
+});
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'UP', service: 'Gateway' });
