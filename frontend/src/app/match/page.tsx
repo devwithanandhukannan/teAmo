@@ -328,24 +328,53 @@ export default function MatchPage() {
       setLocalStream(stream);
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
+      // ICE servers: STUN for public IP discovery + TURN relay servers
+      // TURN is essential when both peers are on the same machine/network
+      // (Chrome mDNS obfuscation blocks host candidates without a relay)
       const pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' }
+          // Free public TURN relay — works on same-machine testing
+          {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          },
+          {
+            urls: 'turns:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+          }
         ],
         iceCandidatePoolSize: 10
       });
 
-      // Add tracks to peer connection
+      // Build a shared remote MediaStream so tracks are collected even if
+      // the browser fires ontrack with individual tracks (no event.streams[])
+      const remoteStream = new MediaStream();
+      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+
+      // Add local tracks to peer connection
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
       // IMPORTANT: Set up ALL event handlers BEFORE assigning to ref or processing queued signals
       pc.ontrack = (event) => {
-        if (remoteVideoRef.current && event.streams[0]) {
-          remoteVideoRef.current.srcObject = event.streams[0];
-          setConnectionState('connected');
+        // Some browsers send streams[], others send individual tracks only
+        if (event.streams && event.streams[0]) {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          }
+        } else {
+          // Fallback: add individual track to our pre-built stream
+          remoteStream.addTrack(event.track);
         }
+        setConnectionState('connected');
       };
 
       pc.onicecandidate = (event) => {
@@ -355,17 +384,24 @@ export default function MatchPage() {
       };
 
       pc.onconnectionstatechange = () => {
-        console.log('WebRTC connection state:', pc.connectionState);
-        if (pc.connectionState === 'connected') setConnectionState('connected');
+        console.log('[WebRTC] connectionState:', pc.connectionState);
+        if (pc.connectionState === 'connected') {
+          setConnectionState('connected');
+        }
         if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
           setConnectionState('failed');
-          showToast('Video connection dropped. Reconnecting...');
+          showToast('Video connection dropped.');
         }
       };
 
       pc.oniceconnectionstatechange = () => {
-        console.log('ICE state:', pc.iceConnectionState);
+        console.log('[ICE] iceConnectionState:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setConnectionState('connected');
+        }
         if (pc.iceConnectionState === 'failed') {
+          // Force ICE restart — tries a new set of candidates
+          console.log('[ICE] Failed — restarting ICE');
           pc.restartIce();
         }
       };
@@ -373,7 +409,7 @@ export default function MatchPage() {
       // Assign to ref AFTER handlers are set up
       peerConnectionRef.current = pc;
 
-      // Now drain any signals that arrived before this point
+      // Drain any signals that arrived before this point
       await drainPendingSignals(pc);
 
       if (isCaller && socketRef.current) {
@@ -385,7 +421,7 @@ export default function MatchPage() {
         socketRef.current.emit('signal', { signalData: { offer } });
       }
     } catch (error: any) {
-      console.error('Media error:', error);
+      console.error('[WebRTC] Media error:', error);
       setConnectionState(null);
       if (error.name === 'NotAllowedError') {
         showToast('Camera/mic permission denied. Using text mode.');

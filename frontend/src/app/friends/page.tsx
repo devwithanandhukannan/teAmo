@@ -306,17 +306,39 @@ export default function FriendsPage() {
     const pc = new RTCPeerConnection({
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
+        { urls: 'stun:stun1.l.google.com:19302' },
+        // TURN relay — required for same-machine/same-network connections
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turn:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        },
+        {
+          urls: 'turns:openrelay.metered.ca:443',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
       ],
       iceCandidatePoolSize: 10
     });
 
+    // Pre-build a remote stream for track-by-track browsers
+    const remoteStream = new MediaStream();
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+
     // Set handlers BEFORE assigning to ref
     pc.ontrack = (event) => {
-      if (remoteVideoRef.current && event.streams[0]) {
-        remoteVideoRef.current.srcObject = event.streams[0];
-        setCallConnected(true);
+      if (event.streams && event.streams[0]) {
+        if (remoteVideoRef.current) remoteVideoRef.current.srcObject = event.streams[0];
+      } else {
+        remoteStream.addTrack(event.track);
       }
+      setCallConnected(true);
     };
 
     pc.onicecandidate = (event) => {
@@ -325,14 +347,25 @@ export default function FriendsPage() {
       }
     };
 
-    pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed') {
+    pc.oniceconnectionstatechange = () => {
+      console.log('[ICE direct] iceConnectionState:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setCallConnected(true);
+      }
+      if (pc.iceConnectionState === 'failed') {
         pc.restartIce();
       }
     };
 
+    pc.onconnectionstatechange = () => {
+      console.log('[WebRTC direct] connectionState:', pc.connectionState);
+      if (pc.connectionState === 'connected') setCallConnected(true);
+      if (pc.connectionState === 'failed') pc.restartIce();
+    };
+
     return pc;
   };
+
 
   const startCall = async (friend: Friend) => {
     if (!socket) return;
