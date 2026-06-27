@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: match_stranger_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:alpine
+    container_name: match_stranger_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  auth-service:
+    build:
+      context: ./microservices/auth-service
+      dockerfile: Dockerfile
+    container_name: match_stranger_auth_service
+    ports:
+      - "5004:5004"
+    environment:
+      - PORT=5004
+      - MONGODB_URI=mongodb://mongodb:27017/stranger_match
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=supersecretjwtkeyforstrangermatches
+      - ENCRYPTION_KEY=d5272a8efab1483863486a4bb2fcf3e68ea82cf659d57a2c14041b6194b6ecab
+    depends_on:
+      - mongodb
+      - redis
+
+  chat-service:
+    build:
+      context: ./microservices/chat-service
+      dockerfile: Dockerfile
+    container_name: match_stranger_chat_service
+    ports:
+      - "5003:5003"
+    environment:
+      - PORT=5003
+      - MONGODB_URI=mongodb://mongodb:27017/stranger_match
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=supersecretjwtkeyforstrangermatches
+    volumes:
+      - ./backend/public/uploads:/app/public/uploads
+    depends_on:
+      - mongodb
+      - redis
+
+  notification-service:
+    build:
+      context: ./microservices/notification-service
+      dockerfile: Dockerfile
+    container_name: match_stranger_notification_service
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017/stranger_match
+      - REDIS_URL=redis://redis:6379
+      - ENCRYPTION_KEY=d5272a8efab1483863486a4bb2fcf3e68ea82cf659d57a2c14041b6194b6ecab
+    depends_on:
+      - mongodb
+      - redis
+
+  gateway:
+    build:
+      context: ./microservices/gateway
+      dockerfile: Dockerfile
+    container_name: match_stranger_gateway
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - AUTH_SERVICE_URL=http://auth-service:5004
+      - CHAT_SERVICE_URL=http://chat-service:5003
+    volumes:
+      - ./backend/public/uploads:/app/public/uploads
+    depends_on:
+      - auth-service
+      - chat-service
+
+volumes:
+  mongo_data:
+  redis_data:

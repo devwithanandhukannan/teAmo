@@ -1,0 +1,180 @@
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #f3f4f6;
+  --card: #0a0a0a;
+  --card-foreground: #f3f4f6;
+  --primary: #ffffff;
+  --primary-foreground: #000000;
+  --secondary: #111111;
+  --secondary-foreground: #f3f4f6;
+  --muted: #181818;
+  --muted-foreground: #888888;
+  --accent: #222222;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #0f0f0f;
+  --ring: #ffffff;
+}
+
+/* Incognito Owl Theme styling variables */
+.incognito-mode {
+  --background: #040114;
+  --foreground: #e0dcf5;
+  --card: #080324;
+  --card-foreground: #e0dcf5;
+  --primary: #c084fc; /* purple neon */
+  --primary-foreground: #040114;
+  --secondary: #12093d;
+  --border: rgba(192, 132, 252, 0.2);
+  --ring: #c084fc;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  overflow-x: hidden;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+/* Minimalist Glassmorphism (Apple inspired) */
+.glass {
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--border);
+}
+
+.incognito-mode .glass {
+  background: rgba(12, 6, 38, 0.7);
+  box-shadow: 0 0 25px rgba(192, 132, 252, 0.1);
+}
+
+.glass-card {
+  background: rgba(10, 10, 10, 0.4);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.incognito-mode .glass-card {
+  background: rgba(8, 3, 36, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(192, 132, 252, 0.05);
+}
+
+.glass-input {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+  outline: none;
+}
+
+.incognito-mode .glass-input:focus {
+  box-shadow: 0 0 10px rgba(192, 132, 252, 0.2);
+}
+
+/* macOS Apple-style Dock animations */
+.dock-container {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  transition: background-color 0.4s ease, border-color 0.4s ease;
+}
+
+.incognito-mode .dock-container {
+  background: rgba(12, 6, 38, 0.8);
+}
+
+.dock-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  transform-origin: bottom;
+  cursor: pointer;
+}
+
+.dock-item:hover {
+  transform: scale(1.22);
+}
+
+/* Tooltip for Dock Items */
+.dock-tooltip {
+  position: absolute;
+  top: -45px;
+  background: rgba(17, 17, 17, 0.95);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.dock-item:hover .dock-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Radar scanning grid */
+@keyframes scan-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.sweep-hand {
+  animation: scan-sweep 4s linear infinite;
+}
+
+@keyframes radar-ripple {
+  0% { transform: scale(0.1); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 0; }
+}
+
+.ripple-ring {
+  animation: radar-ripple 3s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+/* Custom Glassmorphism Toast keyframes */
+@keyframes slide-in-up {
+  0% { transform: translate(-50%, 40px); opacity: 0; }
+  100% { transform: translate(-50%, 0); opacity: 1; }
+}
+
+.toast-animate {
+  animation: slide-in-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Incognito neon owl pulse */
+@keyframes owl-glow {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(192, 132, 252, 0.2)); }
+  50% { filter: drop-shadow(0 0 12px rgba(192, 132, 252, 0.7)); }
+}
+
+.owl-neon {
+  animation: owl-glow 2s ease-in-out infinite;
+}
