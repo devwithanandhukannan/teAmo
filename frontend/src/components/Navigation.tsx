@@ -40,7 +40,7 @@ export const Navigation: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    router.push('/login');
+    window.location.href = '/login';
   };
 
   // Toggle Incognito Theme globally on document body
