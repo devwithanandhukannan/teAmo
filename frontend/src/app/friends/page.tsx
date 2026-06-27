@@ -96,6 +96,21 @@ export default function FriendsPage() {
     fetchFriends();
     fetchNotifications();
     loadSnapsFeed();
+
+    // If the user accepted an incoming call from another page (via global modal),
+    // the call offer was stored in localStorage — pick it up and auto-answer it
+    const pendingCallStr = localStorage.getItem('pendingIncomingCall');
+    if (pendingCallStr) {
+      try {
+        const pendingCall = JSON.parse(pendingCallStr);
+        localStorage.removeItem('pendingIncomingCall');
+        setCallPartner(pendingCall.caller);
+        setIncomingCallOffer(pendingCall.offer);
+        setCallState('incoming');
+      } catch (e) {
+        localStorage.removeItem('pendingIncomingCall');
+      }
+    }
   }, []);
 
   // Sync state changes with Dock
@@ -233,11 +248,8 @@ export default function FriendsPage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('call_incoming', ({ fromUserId, caller, offer }) => {
-      setCallPartner(caller);
-      setIncomingCallOffer(offer);
-      setCallState('incoming');
-    });
+    // Note: call_incoming is now handled globally in SocketContext
+    // This page only handles call state changes once the call is active
 
     socket.on('call_accepted', async ({ answer }) => {
       const pc = pcRef.current;
@@ -260,12 +272,15 @@ export default function FriendsPage() {
 
     socket.on('signal', async ({ signalData }) => {
       const pc = pcRef.current;
-      if (!pc || (!pc.remoteDescription && signalData.candidate)) {
-        // Queue candidates arriving before remote description is ready
+      // Queue ALL signal types when PC not ready
+      if (!pc) {
         pendingCallSignalsRef.current.push(signalData);
         return;
       }
-      
+      if (!pc.remoteDescription && (signalData.candidate || signalData.answer)) {
+        pendingCallSignalsRef.current.push(signalData);
+        return;
+      }
       if (signalData.candidate) {
         try {
           await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));

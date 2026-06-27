@@ -2,7 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { Heart, UserPlus, Bell, X, Check } from 'lucide-react';
+import { Heart, UserPlus, Bell, X, Check, Phone, PhoneOff, Video } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface UserInfo {
   _id: string;
@@ -39,7 +40,13 @@ interface GroupInfo {
   members: UserInfo[];
 }
 
-// Rich toast notification for real-time socket alerts
+interface IncomingCall {
+  fromUserId: string;
+  caller: { _id: string; username: string; avatarUrl: string };
+  offer: RTCSessionDescriptionInit;
+}
+
+// Rich toast notification
 interface RichToast {
   id: string;
   type: 'friend_request' | 'friend_accept' | 'nearby_connect' | 'generic';
@@ -61,6 +68,9 @@ interface SocketContextProps {
   sendDirectMessage: (toUserId: string, text: string) => void;
   directMessages: { [key: string]: Message[] };
   setDirectMessages: React.Dispatch<React.SetStateAction<{ [key: string]: Message[] }>>;
+  // Global incoming call state — read by friends/page
+  incomingCall: IncomingCall | null;
+  setIncomingCall: React.Dispatch<React.SetStateAction<IncomingCall | null>>;
 }
 
 const SocketContext = createContext<SocketContextProps | undefined>(undefined);
@@ -75,17 +85,17 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [directMessages, setDirectMessages] = useState<{ [key: string]: Message[] }>({});
   const [incomingRequest, setIncomingRequest] = useState<UserInfo | null>(null);
   const [richToasts, setRichToasts] = useState<RichToast[]>([]);
-  
+  const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+
   const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
 
-  // Show a rich toast notification
   const showRichToast = useCallback((toast: Omit<RichToast, 'id'>) => {
     const id = Date.now().toString();
     setRichToasts(prev => [...prev, { ...toast, id }]);
-    // Auto-dismiss after 5 seconds
     setTimeout(() => {
       setRichToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
+    }, 6000);
   }, []);
 
   const dismissRichToast = (id: string) => {
@@ -139,32 +149,70 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [backendUrl]);
 
   const sendDirectMessage = useCallback((toUserId: string, text: string) => {
-    setSocket(currentSocket => {
-      if (!currentSocket) return currentSocket;
-      currentSocket.emit('direct_message', { toUserId, text });
-      const newMessage: Message = { senderId: 'me', text, createdAt: new Date() };
-      setDirectMessages(prev => ({
-        ...prev,
-        [toUserId]: [...(prev[toUserId] || []), newMessage]
-      }));
-      return currentSocket;
-    });
+    const s = socketRef.current;
+    if (!s) return;
+    s.emit('direct_message', { toUserId, text });
+    const newMessage: Message = { senderId: 'me', text, createdAt: new Date() };
+    setDirectMessages(prev => ({
+      ...prev,
+      [toUserId]: [...(prev[toUserId] || []), newMessage]
+    }));
   }, []);
 
   const handleNearbyResponse = useCallback((accepted: boolean) => {
-    setSocket(currentSocket => {
-      if (!currentSocket || !incomingRequest) return currentSocket;
-      currentSocket.emit('nearby_response', { fromUserId: incomingRequest._id, accepted });
-      setIncomingRequest(null);
+    const s = socketRef.current;
+    setIncomingRequest(prev => {
+      if (!prev) return null;
+      if (s) s.emit('nearby_response', { fromUserId: prev._id, accepted });
       if (accepted) {
         setTimeout(async () => {
           await fetchFriends();
           await fetchNotifications();
         }, 500);
       }
-      return currentSocket;
+      return null;
     });
-  }, [incomingRequest, fetchFriends, fetchNotifications]);
+  }, [fetchFriends, fetchNotifications]);
+
+  // Accept incoming call — navigate to friends page with call state
+  const acceptIncomingCallGlobal = useCallback((call: IncomingCall) => {
+    // Store call offer so friends/page.tsx can pick it up
+    localStorage.setItem('pendingIncomingCall', JSON.stringify({
+      fromUserId: call.fromUserId,
+      caller: call.caller,
+      offer: call.offer
+    }));
+    setIncomingCall(null);
+    window.location.href = '/friends';
+  }, []);
+
+  const rejectIncomingCallGlobal = useCallback((call: IncomingCall) => {
+    const s = socketRef.current;
+    if (s) s.emit('reject_call', { toUserId: call.fromUserId });
+    setIncomingCall(null);
+  }, []);
+
+  // Follow back (accept friend request) from notification
+  const handleFollowBack = useCallback(async (senderId: string) => {
+    const token = localStorage.getItem('token');
+    if (!token || !senderId) return;
+    try {
+      const res = await fetch(`${backendUrl}/api/friends/follow/${senderId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchFriends();
+        showRichToast({
+          type: 'friend_accept',
+          message: data.isMatch ? "🎉 You're now friends!" : '👋 Follow request sent back!'
+        });
+      }
+    } catch (err) {
+      console.error('Follow back error:', err);
+    }
+  }, [backendUrl, fetchFriends, showRichToast]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -175,13 +223,14 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const newSocket = io(backendUrl, {
       transports: ['websocket'],
       reconnectionDelay: 1000,
-      reconnectionAttempts: 10
+      reconnectionAttempts: 20
     });
 
     newSocket.on('connect', () => {
       console.log('Socket connected:', newSocket.id);
       newSocket.emit('authenticate', { token, userId: user._id });
       setSocket(newSocket);
+      socketRef.current = newSocket;
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -247,18 +296,25 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       window.location.href = '/login';
     });
 
-    // Real-time notification: show rich toast AND update notification list
+    // Global: incoming friend call — works from ANY page
+    newSocket.on('call_incoming', ({ fromUserId, caller, offer }) => {
+      setIncomingCall({ fromUserId, caller, offer });
+    });
+
+    // If the friend call was ended before user answered
+    newSocket.on('call_ended', () => {
+      setIncomingCall(prev => prev || null); // dismiss if shown
+      setIncomingCall(null);
+    });
+
+    // Real-time notification toast
     newSocket.on('new_notification', (notification) => {
       setNotifications(prev => [notification, ...prev]);
-      
-      // Show a rich glassmorphic toast for this notification
       showRichToast({
         type: notification.type as any,
         message: notification.message,
         sender: notification.sender
       });
-
-      // Also dispatch for legacy listeners
       window.dispatchEvent(new CustomEvent('show-system-notification', { detail: notification }));
     });
 
@@ -276,6 +332,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return () => {
       newSocket.disconnect();
+      socketRef.current = null;
     };
   }, []);
 
@@ -289,8 +346,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const getToastTitle = (type: string) => {
     switch (type) {
-      case 'friend_accept': return '🎉 New Match!';
-      case 'friend_request': return '👋 New Follow';
+      case 'friend_accept': return '🎉 Matched!';
+      case 'friend_request': return '👋 Follow Request';
       default: return '🔔 Notification';
     }
   };
@@ -310,49 +367,115 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         clearAllNotifications,
         sendDirectMessage,
         directMessages,
-        setDirectMessages
+        setDirectMessages,
+        incomingCall,
+        setIncomingCall
       }}
     >
       {children}
 
-      {/* Rich Socket Notification Toasts — stacked top-right */}
+      {/* ─── Global Incoming Call Modal ────────────────────────────── */}
+      {incomingCall && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center pointer-events-none">
+          {/* Blurred backdrop */}
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-auto" />
+          
+          <div className="relative pointer-events-auto bg-[#050505]/95 border border-indigo-500/40 backdrop-blur-2xl rounded-3xl p-6 w-[90%] max-w-sm shadow-2xl z-10">
+            {/* Pulse ring */}
+            <div className="absolute inset-0 rounded-3xl border border-indigo-500/20 animate-ping pointer-events-none" />
+            
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="relative">
+                <img
+                  src={incomingCall.caller.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=caller'}
+                  alt="Caller"
+                  className="h-20 w-20 rounded-full border-2 border-indigo-500/60 object-cover bg-gray-900"
+                />
+                <div className="absolute -bottom-1 -right-1 bg-indigo-600 rounded-full p-1.5">
+                  <Video size={14} className="text-white" />
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] text-indigo-400 font-black uppercase tracking-widest">
+                  📹 Incoming Video Call
+                </p>
+                <h3 className="text-xl font-black text-white mt-1">
+                  {incomingCall.caller.username}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">wants to video call you</p>
+              </div>
+
+              <div className="flex gap-4 w-full mt-2">
+                <button
+                  onClick={() => rejectIncomingCallGlobal(incomingCall)}
+                  className="flex-1 py-3 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 font-black text-[10px] uppercase tracking-wider rounded-2xl transition flex items-center justify-center gap-2"
+                >
+                  <PhoneOff size={16} /> Decline
+                </button>
+                <button
+                  onClick={() => acceptIncomingCallGlobal(incomingCall)}
+                  className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-[10px] uppercase tracking-wider rounded-2xl transition flex items-center justify-center gap-2"
+                >
+                  <Phone size={16} /> Accept
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Rich Socket Notification Toasts ──────────────────────── */}
       <div className="fixed top-24 right-4 z-[9999] flex flex-col gap-3 w-[90%] max-w-xs pointer-events-none">
         {richToasts.map(toast => (
           <div
             key={toast.id}
-            className="pointer-events-auto bg-neutral-950/90 border border-white/10 backdrop-blur-2xl rounded-2xl p-4 flex items-start gap-3 shadow-2xl"
-            style={{
-              animation: 'slideInFromRight 0.35s ease-out',
-            }}
+            className="pointer-events-auto bg-neutral-950/95 border border-white/10 backdrop-blur-2xl rounded-2xl p-4 flex flex-col gap-3 shadow-2xl"
+            style={{ animation: 'slideInFromRight 0.35s ease-out' }}
           >
-            {toast.sender ? (
-              <img
-                src={toast.sender.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=User'}
-                alt="Sender"
-                className="h-9 w-9 rounded-full border border-white/10 bg-gray-900 object-cover shrink-0"
-              />
-            ) : (
-              <div className="h-9 w-9 rounded-full bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
-                {getToastIcon(toast.type)}
+            <div className="flex items-start gap-3">
+              {toast.sender ? (
+                <img
+                  src={toast.sender.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=User'}
+                  alt="Sender"
+                  className="h-9 w-9 rounded-full border border-white/10 bg-gray-900 object-cover shrink-0"
+                />
+              ) : (
+                <div className="h-9 w-9 rounded-full bg-white/5 border border-white/5 flex items-center justify-center shrink-0">
+                  {getToastIcon(toast.type)}
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">
+                  {getToastTitle(toast.type)}
+                </span>
+                <p className="text-xs font-semibold text-white mt-0.5 leading-snug break-words">{toast.message}</p>
               </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">
-                {getToastTitle(toast.type)}
-              </span>
-              <p className="text-xs font-semibold text-white mt-0.5 leading-snug break-words">{toast.message}</p>
+              <button
+                onClick={() => dismissRichToast(toast.id)}
+                className="text-gray-500 hover:text-white transition p-1 bg-white/5 hover:bg-white/10 rounded-lg shrink-0"
+              >
+                <X size={12} />
+              </button>
             </div>
-            <button
-              onClick={() => dismissRichToast(toast.id)}
-              className="text-gray-500 hover:text-white transition p-1 bg-white/5 hover:bg-white/10 rounded-lg shrink-0"
-            >
-              <X size={12} />
-            </button>
+
+            {/* Accept follow request action button */}
+            {toast.type === 'friend_request' && toast.sender && (
+              <button
+                onClick={() => {
+                  handleFollowBack(toast.sender!._id);
+                  dismissRichToast(toast.id);
+                }}
+                className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-1.5"
+              >
+                <UserPlus size={12} /> Confirm / Follow Back
+              </button>
+            )}
           </div>
         ))}
       </div>
 
-      {/* Nearby Connect Request Modal */}
+      {/* ─── Nearby Connect Request Modal ─────────────────────────── */}
       {incomingRequest && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[9998] w-[90%] max-w-sm bg-[#050505]/95 border border-indigo-500/30 backdrop-blur-2xl rounded-3xl p-5 shadow-2xl">
           <div className="flex items-start gap-4">

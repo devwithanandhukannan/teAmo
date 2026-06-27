@@ -90,6 +90,27 @@ export const followUser = async (req, res) => {
   }
 };
 
+// Remove a pending like / unfollow
+export const unfollowUser = async (req, res) => {
+  const likerId = req.user._id;
+  const likedId = req.params.id;
+
+  try {
+    // Delete the pending like record
+    await Like.findOneAndDelete({ liker: likerId, liked: likedId });
+
+    // Decrement counts
+    await User.findByIdAndUpdate(likerId, { $inc: { followingCount: -1 } });
+    await User.findByIdAndUpdate(likedId, { $inc: { followersCount: -1 } });
+
+    res.json({ success: true, message: 'Unfollowed user.' });
+  } catch (error) {
+    console.error('Unfollow error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+
 // Fetch list of friends populated with online/offline status
 export const getFriendsList = async (req, res) => {
   const userId = req.user._id;

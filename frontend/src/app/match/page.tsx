@@ -236,8 +236,15 @@ export default function MatchPage() {
 
     socket.on('signal', async ({ signalData }) => {
       const pc = peerConnectionRef.current;
-      // Queue signals if PC not ready or remote description not set yet
-      if (!pc || (!pc.remoteDescription && (signalData.candidate || signalData.answer))) {
+      
+      // Queue ALL signal types if PC isn't ready yet
+      if (!pc) {
+        pendingSignalsRef.current.push(signalData);
+        return;
+      }
+
+      // Queue candidates/answers if remote description not yet set
+      if (!pc.remoteDescription && (signalData.candidate || signalData.answer)) {
         pendingSignalsRef.current.push(signalData);
         return;
       }
@@ -248,7 +255,6 @@ export default function MatchPage() {
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('signal', { signalData: { answer } });
-          // Flush queued candidates
           await drainPendingSignals(pc);
         } else if (signalData.answer) {
           await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
@@ -298,20 +304,30 @@ export default function MatchPage() {
     };
   }, [socket, mode, activeGroup]);
 
-  // Drain the pending signal queue once remote description is available
+  // Drain ALL pending signals (offers, answers, candidates) once PC is ready
   const drainPendingSignals = async (pc: RTCPeerConnection) => {
     const queue = [...pendingSignalsRef.current];
     pendingSignalsRef.current = [];
     for (const signalData of queue) {
       try {
-        if (signalData.candidate && pc.remoteDescription) {
-          await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+        if (signalData.offer && !pc.remoteDescription) {
+          // Process queued offer — this happens when offer arrived before PC was created
+          await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          if (socketRef.current) socketRef.current.emit('signal', { signalData: { answer } });
+        } else if (signalData.answer && !pc.remoteDescription) {
+          await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
         } else if (signalData.candidate) {
-          // Still not ready, put back
-          pendingSignalsRef.current.push(signalData);
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
+          } else {
+            // Remote desc still not set — re-queue for next drain
+            pendingSignalsRef.current.push(signalData);
+          }
         }
       } catch (e) {
-        // Ignore stale ICE candidates
+        console.warn('[WebRTC] drainPendingSignals error:', e);
       }
     }
   };
@@ -485,6 +501,22 @@ export default function MatchPage() {
     const opp = opponentRef.current;
     if (!opp) return;
     const token = localStorage.getItem('token');
+
+    if (hasLiked) {
+      // Toggle OFF — unlike / retract follow
+      try {
+        await fetch(`${backendUrl}/api/friends/follow/${opp._id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setHasLiked(false);
+        showToast('Follow request retracted.');
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+
     try {
       const res = await fetch(`${backendUrl}/api/friends/follow/${opp._id}`, {
         method: 'POST',
@@ -497,7 +529,7 @@ export default function MatchPage() {
           socketRef.current.emit('match_like', { toUserId: opp._id, type: 'follow' });
         }
         if (data.isMatch) {
-          showToast('🎉 It\'s a match! You are now friends.');
+          showToast("🎉 It's a match! You are now friends.");
         } else {
           showToast('👍 Follow request sent!');
         }

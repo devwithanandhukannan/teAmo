@@ -1,12 +1,13 @@
 import express from 'express';
 import { 
-  followUser, getFriendsList, trustLikeUser, scanNearbyUsers, getDirectMessages 
+  followUser, unfollowUser, getFriendsList, trustLikeUser, scanNearbyUsers, getDirectMessages 
 } from '../controllers/friendsController.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.post('/follow/:id', protect, followUser);
+router.delete('/follow/:id', protect, unfollowUser);   // Unlike / unfollow
 router.get('/list', protect, getFriendsList);
 router.post('/trust-like/:id', protect, trustLikeUser);
 router.post('/scan', protect, scanNearbyUsers);
