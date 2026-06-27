@@ -106,30 +106,34 @@ export const Dock: React.FC = () => {
             )}
 
             {/* Audio Mute button */}
-            <div 
-              onClick={() => triggerEvent('dock-mute-audio')}
-              className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
-            >
-              <div className={`p-3.5 rounded-2xl border transition ${audioMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
-                {audioMuted ? <MicOff size={18} /> : <Mic size={18} />}
+            {mode === 'video' && (
+              <div 
+                onClick={() => triggerEvent('dock-mute-audio')}
+                className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
+              >
+                <div className={`p-3.5 rounded-2xl border transition ${audioMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
+                  {audioMuted ? <MicOff size={18} /> : <Mic size={18} />}
+                </div>
+                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+                  {audioMuted ? 'Unmute Mic' : 'Mute Mic'}
+                </span>
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
-                {audioMuted ? 'Unmute Mic' : 'Mute Mic'}
-              </span>
-            </div>
+            )}
 
             {/* Video Toggle button */}
-            <div 
-              onClick={() => triggerEvent('dock-mute-video')}
-              className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
-            >
-              <div className={`p-3.5 rounded-2xl border transition ${videoMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
-                {videoMuted ? <VideoOff size={18} /> : <Video size={18} />}
+            {mode === 'video' && (
+              <div 
+                onClick={() => triggerEvent('dock-mute-video')}
+                className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
+              >
+                <div className={`p-3.5 rounded-2xl border transition ${videoMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
+                  {videoMuted ? <VideoOff size={18} /> : <Video size={18} />}
+                </div>
+                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+                  {videoMuted ? 'Start Camera' : 'Stop Camera'}
+                </span>
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
-                {videoMuted ? 'Start Camera' : 'Stop Camera'}
-              </span>
-            </div>
+            )}
 
             {/* Toggle Chat Box */}
             <div 

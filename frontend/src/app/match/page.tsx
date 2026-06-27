@@ -68,6 +68,7 @@ export default function MatchPage() {
   // Social updates
   const [hasLiked, setHasLiked] = useState(false);
   const [hasTrustLiked, setHasTrustLiked] = useState(false);
+  const [isLikedFlashing, setIsLikedFlashing] = useState(false);
   
   // Incognito Owl UI theme trigger
   const [incognitoMode, setIncognitoMode] = useState(false);
@@ -251,6 +252,14 @@ export default function MatchPage() {
       showToast('Stranger skipped the hangout.');
     });
 
+    socket.on('match_liked', ({ fromUserId, type }) => {
+      setIsLikedFlashing(true);
+      setTimeout(() => {
+        setIsLikedFlashing(false);
+      }, 2000);
+      showToast('Stranger liked you!');
+    });
+
     if (activeGroup) {
       closePeerAndMedia();
       setOpponent(null);
@@ -263,6 +272,7 @@ export default function MatchPage() {
       socket.off('signal');
       socket.off('match_message');
       socket.off('match_skipped');
+      socket.off('match_liked');
     };
   }, [socket, mode, activeGroup]);
 
@@ -394,6 +404,9 @@ export default function MatchPage() {
       const data = await res.json();
       if (data.success) {
         setHasLiked(true);
+        if (socket) {
+          socket.emit('match_like', { toUserId: opponent._id, type: 'follow' });
+        }
         if (data.isMatch) {
           showToast('It is a match! Friend added.');
         }
@@ -414,6 +427,9 @@ export default function MatchPage() {
       const data = await res.json();
       if (data.success) {
         setHasTrustLiked(true);
+        if (socket) {
+          socket.emit('match_like', { toUserId: opponent._id, type: 'like' });
+        }
         setOpponent(prev => prev ? { ...prev, trustRank: data.trustRank } : null);
       }
     } catch (err) {
@@ -636,7 +652,11 @@ export default function MatchPage() {
                 {mode === 'video' && matchState === 'connected' ? (
                   <div className="flex-1 flex flex-col md:flex-row gap-4 items-stretch relative min-h-[300px]">
                     {/* Remote Screen */}
-                    <div className="flex-1 bg-black/60 rounded-xl overflow-hidden border border-white/5 relative flex items-center justify-center aspect-video md:aspect-auto">
+                    <div className={`flex-1 rounded-xl overflow-hidden relative flex items-center justify-center aspect-video md:aspect-auto border transition-all duration-300 ${
+                      isLikedFlashing 
+                        ? 'bg-red-600/80 border-red-500 shadow-red-500/20' 
+                        : 'bg-black/60 border-white/5'
+                    }`}>
                       <video
                         ref={remoteVideoRef}
                         autoPlay
@@ -664,7 +684,11 @@ export default function MatchPage() {
                   </div>
                 ) : (
                   /* Graphical Placeholder */
-                  <div className="flex-1 flex flex-col items-center justify-center border border-white/5 rounded-xl py-12">
+                  <div className={`flex-1 flex flex-col items-center justify-center border rounded-xl py-12 transition-all duration-300 ${
+                    isLikedFlashing 
+                      ? 'bg-red-600/80 border-red-500 shadow-red-500/20' 
+                      : 'bg-white/[0.01] border-white/5'
+                  }`}>
                     <div className="flex gap-6 items-center">
                       <img
                         src="https://api.dicebear.com/7.x/bottts/svg?seed=You"

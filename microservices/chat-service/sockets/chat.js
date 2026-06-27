@@ -188,6 +188,15 @@ export const handleSocketConnections = (io) => {
       }
     });
 
+    // Real-time match liking notifications
+    socket.on('match_like', async ({ toUserId, type }) => {
+      if (!currentUserId || !toUserId) return;
+      const opponentSocketId = await redisClient.hGet('online_sockets', toUserId);
+      if (opponentSocketId) {
+        io.to(opponentSocketId).emit('match_liked', { fromUserId: currentUserId, type });
+      }
+    });
+
     // Direct text messaging inside active match
     socket.on('match_message', async ({ text }) => {
       if (!currentUserId) return;
