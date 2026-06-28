@@ -71,6 +71,7 @@ export default function MatchPage() {
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
   const [hasLiked, setHasLiked] = useState(false);
+  const [isMutualFriend, setIsMutualFriend] = useState(false);
   const [hasTrustLiked, setHasTrustLiked] = useState(false);
   const [isLikedFlashing, setIsLikedFlashing] = useState(false);
   const [incognitoMode, setIncognitoMode] = useState(false);
@@ -238,6 +239,7 @@ export default function MatchPage() {
       setSharedInterests(shared || []);
       setChatLog([]);
       setHasLiked(false);
+      setIsMutualFriend(false);
       setHasTrustLiked(false);
       setIsLikedFlashing(false);
       setConnectionState(null);
@@ -305,10 +307,20 @@ export default function MatchPage() {
       showToast('Stranger skipped the hangout.');
     });
 
-    socket.on('match_liked', () => {
+    socket.on('match_liked', (data) => {
+      const { fromUserId, type } = data || {};
       setIsLikedFlashing(true);
       setTimeout(() => setIsLikedFlashing(false), 2000);
-      showToast('❤️ Someone liked you!');
+      
+      if (type === 'follow_match') {
+        setIsMutualFriend(true);
+        setHasLiked(true);
+        showToast("🎉 It's a match! You are now friends.");
+      } else if (type === 'follow') {
+        showToast('❤️ Someone liked you!');
+      } else {
+        showToast('❤️ Someone liked you!');
+      }
     });
 
     if (activeGroup) {
@@ -613,6 +625,7 @@ export default function MatchPage() {
           headers: { Authorization: `Bearer ${token}` }
         });
         setHasLiked(false);
+        setIsMutualFriend(false);
         showToast('Follow request retracted.');
       } catch (err) {
         console.error(err);
@@ -628,12 +641,16 @@ export default function MatchPage() {
       const data = await res.json();
       if (data.success) {
         setHasLiked(true);
-        if (socketRef.current) {
-          socketRef.current.emit('match_like', { toUserId: opp._id, type: 'follow' });
-        }
         if (data.isMatch) {
+          setIsMutualFriend(true);
+          if (socketRef.current) {
+            socketRef.current.emit('match_like', { toUserId: opp._id, type: 'follow_match' });
+          }
           showToast("🎉 It's a match! You are now friends.");
         } else {
+          if (socketRef.current) {
+            socketRef.current.emit('match_like', { toUserId: opp._id, type: 'follow' });
+          }
           showToast('👍 Follow request sent!');
         }
       }
@@ -874,7 +891,7 @@ export default function MatchPage() {
                         title={hasLiked ? "Unlike (Cancel Request)" : "Like (Add Friend)"}
                       >
                         <Heart size={14} className={hasLiked ? "fill-current text-pink-400" : ""} />
-                        <span>{hasLiked ? "Liked" : "Like"}</span>
+                        <span>{isMutualFriend ? "Mutual Friends" : hasLiked ? "Following" : "Like"}</span>
                       </button>
                       <button
                         onClick={handleTrustLike}
