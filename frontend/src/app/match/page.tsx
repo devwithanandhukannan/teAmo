@@ -856,7 +856,7 @@ export default function MatchPage() {
               <div className="w-full h-full flex flex-col gap-4">
 
                 {/* Peer bar */}
-                <div className="flex justify-between items-center bg-secondary border border-border p-3 rounded-xl">
+                <div className="flex justify-between items-center w-full pb-4 border-b border-border/40">
                   <div className="flex items-center gap-3">
                     <img
                       src={opponent?.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=Stranger'}

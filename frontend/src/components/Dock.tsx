@@ -24,7 +24,7 @@ export const Dock: React.FC = () => {
   const [chatOpen, setChatOpen] = useState(true);
 
   // Hide Dock on auth pages
-  const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(pathname);
+  const isAuthPage = ['/', '/login', '/register', '/forgot-password', '/reset-password'].includes(pathname) || pathname.startsWith('/admin');
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');

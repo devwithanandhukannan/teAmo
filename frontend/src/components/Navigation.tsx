@@ -17,7 +17,7 @@ export const Navigation: React.FC = () => {
   // Theme and incognito state
   const [incognito, setIncognito] = useState(false);
 
-  const isAuthPage = ['/login', '/register', '/forgot-password', '/reset-password'].includes(pathname) || pathname.startsWith('/admin');
+  const isAuthPage = ['/', '/login', '/register', '/forgot-password', '/reset-password'].includes(pathname) || pathname.startsWith('/admin');
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
