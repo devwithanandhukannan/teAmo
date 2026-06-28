@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { X, Loader2, CheckCircle2, AlertCircle, Sparkles, Key } from 'lucide-react';
 import { useToast } from './Toast';
+import { getBackendUrl } from '@/config';
 
 export const ProfileDrawer: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -30,7 +31,7 @@ export const ProfileDrawer: React.FC = () => {
   const [emailOtp, setEmailOtp] = useState('');
   const [emailUpdateLoading, setEmailUpdateLoading] = useState(false);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   // Load User profile
   const fetchProfile = async () => {

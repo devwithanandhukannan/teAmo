@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Radio, Mail, Lock, User, Loader2, ArrowRight, ShieldCheck, MailOpen, AlertCircle, RefreshCw } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { getBackendUrl } from '@/config';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   // Debounced real-time checks for username availability
   useEffect(() => {

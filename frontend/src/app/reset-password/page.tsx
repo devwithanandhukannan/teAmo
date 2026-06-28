@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Lock, Loader2, CheckCircle, ArrowRight } from 'lucide-react';
+import { getBackendUrl } from '@/config';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -16,7 +17,7 @@ function ResetPasswordForm() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   useEffect(() => {
     if (!token || !email) {

@@ -3,6 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, ShieldAlert, Loader2, ArrowRight, Radio } from 'lucide-react';
+import { getBackendUrl } from '@/config';
 
 function VerifyLoginContent() {
   const router = useRouter();
@@ -14,7 +15,7 @@ function VerifyLoginContent() {
   const [message, setMessage] = useState('Verifying your login link...');
   const [loading, setLoading] = useState(true);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   useEffect(() => {
     if (!token || !email) {

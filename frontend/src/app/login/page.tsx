@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Radio, Mail, Lock, Loader2, ArrowRight, ShieldCheck, MailOpen, AlertCircle, RefreshCw } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { getBackendUrl } from '@/config';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,7 +23,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   // Redirect if already logged in
   useEffect(() => {

@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation';
 import { Compass, Loader2, Sparkles, Navigation, ShieldCheck, Heart, UserPlus, Check, X } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
 import { useToast } from '../../components/Toast';
- 
+import { getBackendUrl } from '@/config';
+
 interface NearbyUser {
   userId: string;
   avatarUrl: string;
   username: string;
   distance: string;
 }
- 
+
 export default function NearbyPage() {
   const router = useRouter();
   const { socket, fetchFriends, friends } = useSocket();
@@ -27,8 +28,8 @@ export default function NearbyPage() {
   const [connectLoading, setConnectLoading] = useState(false);
   const [connectedUserIds, setConnectedUserIds] = useState<string[]>([]);
   const [requestingUserIds, setRequestingUserIds] = useState<string[]>([]);
- 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+
+  const backendUrl = getBackendUrl();
 
   // Sync connected friends
   useEffect(() => {

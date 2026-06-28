@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { io, Socket } from 'socket.io-client';
 import { Heart, UserPlus, Bell, X, Check, Phone, PhoneOff, Video } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { getBackendUrl } from '@/config';
 
 interface UserInfo {
   _id: string;
@@ -88,7 +89,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
   const socketRef = useRef<Socket | null>(null);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   const showRichToast = useCallback((toast: Omit<RichToast, 'id'>) => {
     const id = Date.now().toString();

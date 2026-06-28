@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../context/SocketContext';
 import { useToast } from '../../components/Toast';
+import { getBackendUrl, safeGetUserMedia } from '@/config';
 import { 
   Phone, Video, Send, Plus, Trash2, X, Loader2, 
   PhoneCall, PhoneOff, VolumeX, CameraOff, Bell, BellOff, MessageSquare
@@ -77,7 +78,7 @@ export default function FriendsPage() {
   useEffect(() => { socketRef.current = socket; }, [socket]);
   useEffect(() => { callPartnerRef.current = callPartner; }, [callPartner]);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -161,6 +162,29 @@ export default function FriendsPage() {
       window.removeEventListener('dock-exit', handleDockExit);
     };
   }, []); // Empty — safe because we use refs
+
+  const handleUnfriend = async (friendId: string) => {
+    if (!window.confirm("Are you sure you want to unfriend/unfollow this user?")) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${backendUrl}/api/friends/remove/${friendId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Friend removed.');
+        setSelectedFriend(null);
+        fetchFriends();
+      } else {
+        showToast(data.message || 'Failed to remove friend.');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error removing friend.');
+    }
+  };
 
   // WhatsApp-style message logs retrieval on friend selection
   useEffect(() => {
@@ -389,7 +413,7 @@ export default function FriendsPage() {
     setCallState('calling');
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await safeGetUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: { echoCancellation: true, noiseSuppression: true }
       });
@@ -405,10 +429,14 @@ export default function FriendsPage() {
       await pc.setLocalDescription(offer);
       socket.emit('call_user', { toUserId: friend._id, offer });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       closeCall();
-      showToast('Call failed. Check camera/mic permissions.');
+      if (error.message === 'SECURE_CONTEXT_REQUIRED') {
+        showToast('🔒 Camera/mic access requires HTTPS or localhost connection.');
+      } else {
+        showToast('Call failed. Check camera/mic permissions.');
+      }
     }
   };
 
@@ -416,7 +444,7 @@ export default function FriendsPage() {
     if (!socket || !callPartner || !incomingCallOffer) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await safeGetUserMedia({
         video: { width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: { echoCancellation: true, noiseSuppression: true }
       });
@@ -443,9 +471,14 @@ export default function FriendsPage() {
 
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      rejectIncomingCall();
+      closeCall();
+      if (error.message === 'SECURE_CONTEXT_REQUIRED') {
+        showToast('🔒 Camera/mic access requires HTTPS or localhost connection.');
+      } else {
+        showToast('Call failed. Check camera/mic permissions.');
+      }
     }
   };
 
@@ -642,9 +675,18 @@ export default function FriendsPage() {
                     <span className="text-[9px] text-gray-500">{selectedFriend.isOnline ? 'Active Now' : 'Offline'}</span>
                   </div>
                 </div>
-                <button onClick={() => setSelectedFriend(null)} className="text-gray-400 hover:text-white transition">
-                  <X size={16} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleUnfriend(selectedFriend._id)}
+                    className="p-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-lg text-xs transition"
+                    title="Unfriend / Unfollow"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                  <button onClick={() => setSelectedFriend(null)} className="text-gray-400 hover:text-white transition p-1 hover:bg-white/5 rounded-lg">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
 
               {/* Chat messages */}

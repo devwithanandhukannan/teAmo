@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Mail, ArrowLeft, Send, Loader2 } from 'lucide-react';
+import { getBackendUrl } from '@/config';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +12,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const [mockResetLink, setMockResetLink] = useState('');
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

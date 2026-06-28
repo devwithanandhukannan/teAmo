@@ -250,3 +250,39 @@ export const getDirectMessages = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
+
+// Unfriend / Remove friendship
+export const removeFriend = async (req, res) => {
+  const userId = req.user._id;
+  const friendId = req.params.id;
+
+  try {
+    // Find and delete the friendship
+    const deletedFriendship = await Friendship.findOneAndDelete({
+      $or: [
+        { user1: userId, user2: friendId },
+        { user1: friendId, user2: userId }
+      ]
+    });
+
+    // Also delete any residual likes
+    await Like.deleteMany({
+      $or: [
+        { liker: userId, liked: friendId },
+        { liker: friendId, liked: userId }
+      ]
+    });
+
+    if (deletedFriendship) {
+      // Decrement following/followers counts for both users
+      await User.findByIdAndUpdate(userId, { $inc: { followingCount: -1, followersCount: -1 } });
+      await User.findByIdAndUpdate(friendId, { $inc: { followingCount: -1, followersCount: -1 } });
+    }
+
+    res.json({ success: true, message: 'Friend removed successfully.' });
+  } catch (error) {
+    console.error('Remove friend error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+

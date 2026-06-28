@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../context/SocketContext';
+import { getBackendUrl, safeGetUserMedia } from '@/config';
 import { 
   ShieldAlert, Settings, BarChart2, ShieldAlert as ReportsIcon, Users as UsersIcon, 
   Key, Server, Sliders, Ban, CheckCircle, AlertTriangle, PlayCircle, Loader2,
@@ -129,7 +130,7 @@ export default function AdminPage() {
   const [hoveredSpike, setHoveredSpike] = useState<number | null>(null);
   const [hoveredDuration, setHoveredDuration] = useState<number | null>(null);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   // Mock telemetry data representing login spikes
   const loginSpikeData = [
@@ -238,22 +239,53 @@ export default function AdminPage() {
     });
 
     socket.on('match_found', async ({ opponent: opp, isCaller }) => {
-      setCallPartner(opp);
-      setCallState('active');
+      try {
+        setCallPartner(opp);
+        setCallState('active');
 
-      if (isCaller) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          streamRef.current = stream;
-          setLocalStream(stream);
-          if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+        if (isCaller) {
+          try {
+            const stream = await safeGetUserMedia({ video: true, audio: true });
+            streamRef.current = stream;
+            setLocalStream(stream);
+            if (localVideoRef.current) localVideoRef.current.srcObject = stream;
 
+            const pc = new RTCPeerConnection({
+              iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            pcRef.current = pc;
+
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+            pc.ontrack = (event) => {
+              if (remoteVideoRef.current && event.streams[0]) {
+                remoteVideoRef.current.srcObject = event.streams[0];
+              }
+            };
+
+            pc.onicecandidate = (event) => {
+              if (event.candidate) {
+                socket.emit('signal', { signalData: { candidate: event.candidate } });
+              }
+            };
+
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socket.emit('signal', { signalData: { offer } });
+          } catch (err: any) {
+            console.error('Video stream error:', err);
+            if (err.message === 'SECURE_CONTEXT_REQUIRED') {
+              alert('🔒 Camera/mic access requires HTTPS or localhost connection.');
+            } else {
+              alert('Could not start video stream. Operating in text mode.');
+            }
+          }
+        } else {
+          // If not caller, just prepare RTCPeerConnection to receive offer
           const pc = new RTCPeerConnection({
             iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
           });
           pcRef.current = pc;
-
-          stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
           pc.ontrack = (event) => {
             if (remoteVideoRef.current && event.streams[0]) {
@@ -266,32 +298,9 @@ export default function AdminPage() {
               socket.emit('signal', { signalData: { candidate: event.candidate } });
             }
           };
-
-          const offer = await pc.createOffer();
-          await pc.setLocalDescription(offer);
-          socket.emit('signal', { signalData: { offer } });
-        } catch (err) {
-          console.error('Video stream error:', err);
-          alert('Could not start video stream. Operating in text mode.');
         }
-      } else {
-        // If not caller, just prepare RTCPeerConnection to receive offer
-        const pc = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-        });
-        pcRef.current = pc;
-
-        pc.ontrack = (event) => {
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
-          }
-        };
-
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            socket.emit('signal', { signalData: { candidate: event.candidate } });
-          }
-        };
+      } catch (err) {
+        console.error('match_found event error:', err);
       }
     });
 
@@ -315,18 +324,27 @@ export default function AdminPage() {
       if (!pc) return;
       try {
         if (signalData.offer) {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-          streamRef.current = stream;
-          setLocalStream(stream);
-          if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-          
-          stream.getTracks().forEach(track => pc.addTrack(track, stream));
-          
-          await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socket.emit('signal', { signalData: { answer } });
-          setCallState('active');
+          try {
+            const stream = await safeGetUserMedia({ video: true, audio: true });
+            streamRef.current = stream;
+            setLocalStream(stream);
+            if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+            
+            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            
+            await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('signal', { signalData: { answer } });
+            setCallState('active');
+          } catch (err: any) {
+            console.error('Signal video stream error:', err);
+            if (err.message === 'SECURE_CONTEXT_REQUIRED') {
+              alert('🔒 Camera/mic access requires HTTPS or localhost connection.');
+            } else {
+              alert('Could not start video stream. Operating in text mode.');
+            }
+          }
         } else if (signalData.answer) {
           await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
           setCallState('active');
@@ -377,7 +395,7 @@ export default function AdminPage() {
     if (!socket || !callPartner || !incomingCallOffer) return;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const stream = await safeGetUserMedia({ video: true, audio: true });
       streamRef.current = stream;
       setLocalStream(stream);
 
@@ -412,8 +430,13 @@ export default function AdminPage() {
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       }, 500);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      if (error.message === 'SECURE_CONTEXT_REQUIRED') {
+        alert('🔒 Camera/mic access requires HTTPS or localhost connection.');
+      } else {
+        alert('Call failed. Check camera/mic permissions.');
+      }
       rejectIncomingCall();
     }
   };

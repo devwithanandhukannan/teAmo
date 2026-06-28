@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../context/SocketContext';
 import { useToast } from '../../components/Toast';
+import { getBackendUrl, safeGetUserMedia } from '@/config';
 import { 
   Video, MessageSquare, Sparkles, UserPlus, Heart, Flag, 
   Send, Loader2, ShieldAlert, 
@@ -80,7 +81,7 @@ export default function MatchPage() {
   const isCamOffRef = useRef(isCamOff);
   const socketRef = useRef(socket);
 
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5001';
+  const backendUrl = getBackendUrl();
 
   // Keep refs in sync with state
   useEffect(() => { matchStateRef.current = matchState; }, [matchState]);
@@ -230,7 +231,11 @@ export default function MatchPage() {
       setMatchState('connected');
 
       if (mode === 'video') {
-        await startMediaAndCall(isCaller);
+        try {
+          await startMediaAndCall(isCaller);
+        } catch (err) {
+          console.error('[WebRTC] startMediaAndCall in match_found error:', err);
+        }
       }
     });
 
@@ -336,7 +341,7 @@ export default function MatchPage() {
   const startMediaAndCall = async (isCaller: boolean) => {
     try {
       setConnectionState('connecting');
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      const stream = await safeGetUserMedia({ 
         video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
       });
@@ -439,7 +444,9 @@ export default function MatchPage() {
     } catch (error: any) {
       console.error('[WebRTC] Media error:', error);
       setConnectionState(null);
-      if (error.name === 'NotAllowedError') {
+      if (error.message === 'SECURE_CONTEXT_REQUIRED') {
+        showToast('🔒 Camera/mic access requires HTTPS or localhost connection.');
+      } else if (error.name === 'NotAllowedError') {
         showToast('Camera/mic permission denied. Using text mode.');
       } else {
         showToast('Could not start camera. Using text mode.');
@@ -755,19 +762,20 @@ export default function MatchPage() {
                       )}
                       <button
                         onClick={handleFollow}
-                        disabled={hasLiked}
-                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1 ${hasLiked ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'}`}
-                        title="Follow / Add Friend"
+                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${hasLiked ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'}`}
+                        title={hasLiked ? "Unlike (Cancel Request)" : "Like (Add Friend)"}
                       >
-                        <UserPlus size={14} />
+                        <Heart size={14} className={hasLiked ? "fill-current text-pink-400" : ""} />
+                        <span>{hasLiked ? "Liked" : "Like"}</span>
                       </button>
                       <button
                         onClick={handleTrustLike}
                         disabled={hasTrustLiked}
-                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1 ${hasTrustLiked ? 'bg-pink-500/10 text-pink-400 border border-pink-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'}`}
-                        title="Trust Like"
+                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${hasTrustLiked ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'}`}
+                        title="Trust Like (Increases Rank)"
                       >
-                        <Heart size={14} />
+                        <Sparkles size={14} />
+                        <span>Trust +5</span>
                       </button>
                       <button
                         onClick={() => setIsReportOpen(true)}
@@ -784,12 +792,16 @@ export default function MatchPage() {
                 {mode === 'video' && matchState === 'connected' ? (
                   <div className="flex-1 flex flex-col md:flex-row gap-4 items-stretch relative min-h-[300px]">
                     {/* Remote Screen */}
-                    <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/5 relative flex items-center justify-center aspect-video md:aspect-auto">
+                    <div 
+                      onClick={handleFollow}
+                      className="flex-1 bg-black rounded-xl overflow-hidden border border-white/5 relative flex items-center justify-center aspect-video md:aspect-auto cursor-pointer"
+                      title="Tap to Like / Unlike"
+                    >
                       <video
                         ref={remoteVideoRef}
                         autoPlay
                         playsInline
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover pointer-events-none"
                       />
                       {/* Placeholder when no remote stream */}
                       {connectionState !== 'connected' && (
