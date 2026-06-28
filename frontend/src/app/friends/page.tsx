@@ -42,13 +42,15 @@ export default function FriendsPage() {
   const { 
     socket, friends, fetchFriends, 
     notifications, fetchNotifications, clearAllNotifications,
-    sendDirectMessage, directMessages, setDirectMessages
+    sendDirectMessage, directMessages, setDirectMessages,
+    pendingSignals, setPendingSignals
   } = useSocket();
   const { showToast } = useToast();
   const { showConfirm } = useModal();
 
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [typedMessage, setTypedMessage] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string>('');
   
   // Snaps feed
   const [snaps, setSnaps] = useState<Snap[]>([]);
@@ -75,12 +77,15 @@ export default function FriendsPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef(socket);
   const callPartnerRef = useRef(callPartner);
+  const isAcceptingCallRef = useRef(false);
 
   // Keep refs in sync
   useEffect(() => { socketRef.current = socket; }, [socket]);
   useEffect(() => { callPartnerRef.current = callPartner; }, [callPartner]);
 
   const backendUrl = getBackendUrl();
+
+  const [autoAccept, setAutoAccept] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -91,6 +96,7 @@ export default function FriendsPage() {
     }
     
     const user = JSON.parse(userStr);
+    if (user._id) setCurrentUserId(user._id);
     if (user.username === 'admin') {
       router.push('/admin');
       return;
@@ -110,6 +116,9 @@ export default function FriendsPage() {
         setCallPartner(pendingCall.caller);
         setIncomingCallOffer(pendingCall.offer);
         setCallState('incoming');
+        if (pendingCall.autoAccept) {
+          setAutoAccept(true);
+        }
       } catch (e) {
         localStorage.removeItem('pendingIncomingCall');
       }
@@ -286,6 +295,10 @@ export default function FriendsPage() {
     socket.on('call_accepted', async ({ answer }) => {
       const pc = pcRef.current;
       if (pc) {
+        if (pc.signalingState !== 'have-local-offer') {
+          console.warn('Ignoring call_accepted due to state:', pc.signalingState);
+          return;
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         setCallState('active');
         setCallConnected(false);
@@ -323,7 +336,6 @@ export default function FriendsPage() {
     });
 
     return () => {
-      socket.off('call_incoming');
       socket.off('call_accepted');
       socket.off('call_rejected');
       socket.off('call_ended');
@@ -416,6 +428,7 @@ export default function FriendsPage() {
 
   const startCall = async (friend: Friend) => {
     if (!socket) return;
+    if (isAcceptingCallRef.current) return;
     setCallPartner(friend);
     setCallConnected(false);
     setCallState('calling');
@@ -450,6 +463,9 @@ export default function FriendsPage() {
 
   const acceptIncomingCall = async () => {
     if (!socket || !callPartner || !incomingCallOffer) return;
+    if (pcRef.current || isAcceptingCallRef.current) return; // Prevent double execution
+    
+    isAcceptingCallRef.current = true;
 
     try {
       const stream = await safeGetUserMedia({
@@ -474,7 +490,9 @@ export default function FriendsPage() {
 
       socket.emit('accept_call', { toUserId: callPartner._id, answer });
 
-      // Drain queued candidates
+      // Drain queued candidates (local + global)
+      pendingSignals.forEach(sig => pendingCallSignalsRef.current.push(sig));
+      setPendingSignals([]);
       await processPendingCallSignals(pc);
 
       if (localVideoRef.current) localVideoRef.current.srcObject = stream;
@@ -489,6 +507,13 @@ export default function FriendsPage() {
       }
     }
   };
+
+  useEffect(() => {
+    if (callState === 'incoming' && autoAccept && socket && callPartner && incomingCallOffer) {
+      setAutoAccept(false);
+      acceptIncomingCall();
+    }
+  }, [callState, autoAccept, socket, callPartner, incomingCallOffer]);
 
   const rejectIncomingCall = () => {
     if (socket && callPartner) {
@@ -510,6 +535,7 @@ export default function FriendsPage() {
       pcRef.current = null;
     }
     pendingCallSignalsRef.current = [];
+    isAcceptingCallRef.current = false;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
@@ -705,7 +731,7 @@ export default function FriendsPage() {
                   </div>
                 )}
                 {currentChatMsgs.map((msg, index) => {
-                  const isMe = msg.senderId === 'me' || msg.senderId === socket?.id;
+                  const isMe = msg.senderId === 'me' || msg.senderId === socket?.id || msg.senderId === currentUserId;
                   return (
                     <div key={index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[70%] rounded-xl px-3.5 py-2 text-xs ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground border border-border'}`}>
@@ -861,13 +887,6 @@ export default function FriendsPage() {
                 </div>
               </div>
             </div>
-
-            {callState === 'active' && (
-              <div className="bg-gray-900/60 p-4 border-t border-white/5 flex justify-center items-center gap-4 z-10">
-                <button onClick={endActiveCall} className="px-6 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl font-bold text-xs transition flex items-center gap-1"><PhoneOff size={14} /> End Call</button>
-              </div>
-            )}
-
           </div>
         </div>
       )}

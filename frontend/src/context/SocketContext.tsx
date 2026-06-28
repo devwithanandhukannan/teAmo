@@ -73,12 +73,15 @@ interface SocketContextProps {
   // Global incoming call state — read by friends/page
   incomingCall: IncomingCall | null;
   setIncomingCall: React.Dispatch<React.SetStateAction<IncomingCall | null>>;
+  pendingSignals: any[];
+  setPendingSignals: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
 const SocketContext = createContext<SocketContextProps | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { showAlert } = useModal();
+  const router = useRouter();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineCount, setOnlineCount] = useState<number>(0);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -89,6 +92,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [incomingRequest, setIncomingRequest] = useState<UserInfo | null>(null);
   const [richToasts, setRichToasts] = useState<RichToast[]>([]);
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null);
+  const [pendingSignals, setPendingSignals] = useState<any[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
   const backendUrl = getBackendUrl();
@@ -183,11 +187,12 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('pendingIncomingCall', JSON.stringify({
       fromUserId: call.fromUserId,
       caller: call.caller,
-      offer: call.offer
+      offer: call.offer,
+      autoAccept: true
     }));
     setIncomingCall(null);
-    window.location.href = '/friends';
-  }, []);
+    router.push('/friends');
+  }, [router]);
 
   const rejectIncomingCallGlobal = useCallback((call: IncomingCall) => {
     const s = socketRef.current;
@@ -241,7 +246,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     newSocket.on('force_match_redirect', ({ mode }) => {
-      window.location.href = `/match?mode=${mode || 'video'}`;
+      router.push(`/match?mode=${mode || 'video'}`);
     });
 
     newSocket.on('online_metrics', ({ count }) => {
@@ -293,6 +298,10 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setGroupMessages(prev => [...prev, newMessage]);
     });
 
+    newSocket.on('signal', ({ signalData }) => {
+      setPendingSignals(prev => [...prev, signalData]);
+    });
+
     newSocket.on('banned', async () => {
       await showAlert('Account Banned', 'Your account has been banned by the Administrator.');
       localStorage.clear();
@@ -337,7 +346,7 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       newSocket.disconnect();
       socketRef.current = null;
     };
-  }, []);
+  }, [backendUrl, fetchFriends, fetchNotifications, showAlert, showRichToast, router]);
 
   const getToastIcon = (type: string) => {
     switch (type) {
@@ -372,7 +381,9 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         directMessages,
         setDirectMessages,
         incomingCall,
-        setIncomingCall
+        setIncomingCall,
+        pendingSignals,
+        setPendingSignals
       }}
     >
       {children}

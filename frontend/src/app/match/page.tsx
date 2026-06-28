@@ -9,7 +9,7 @@ import {
   Video, MessageSquare, Zap, UserPlus, Heart, Flag, 
   ShieldAlert, VolumeX, CameraOff, PhoneOff, X, 
   ShieldAlert as ShieldAlertIcon, RefreshCw, Send, Loader2,
-  Plus, Users, EyeOff, Shield
+  Plus, Users, EyeOff, Shield, CheckCircle2
 } from 'lucide-react';
 
 interface Opponent {
@@ -70,8 +70,8 @@ export default function MatchPage() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isCamOff, setIsCamOff] = useState(false);
-  const [hasLiked, setHasLiked] = useState(false);
-  const [isMutualFriend, setIsMutualFriend] = useState(false);
+  const [relationshipStatus, setRelationshipStatus] = useState<'none' | 'requested_by_me' | 'requested_by_them' | 'following' | 'friends'>('none');
+
   const [hasTrustLiked, setHasTrustLiked] = useState(false);
   const [isLikedFlashing, setIsLikedFlashing] = useState(false);
   const [incognitoMode, setIncognitoMode] = useState(false);
@@ -238,8 +238,8 @@ export default function MatchPage() {
       setOpponent(opp);
       setSharedInterests(shared || []);
       setChatLog([]);
-      setHasLiked(false);
-      setIsMutualFriend(false);
+      setRelationshipStatus('none');
+
       setHasTrustLiked(false);
       setIsLikedFlashing(false);
       setConnectionState(null);
@@ -247,6 +247,22 @@ export default function MatchPage() {
 
       if (mode === 'video') {
         setIsCallerState(isCaller);
+      }
+
+      // Fetch relationship status
+      const token = localStorage.getItem('token');
+      if (token && opp) {
+        try {
+          const res = await fetch(`${backendUrl}/api/friends/status/${opp._id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (data.success) {
+            setRelationshipStatus(data.status);
+          }
+        } catch(err) {
+          console.error('Failed to fetch status', err);
+        }
       }
     });
 
@@ -312,14 +328,16 @@ export default function MatchPage() {
       setIsLikedFlashing(true);
       setTimeout(() => setIsLikedFlashing(false), 2000);
       
-      if (type === 'follow_match') {
-        setIsMutualFriend(true);
-        setHasLiked(true);
+      if (type === 'friend_accept') {
+        setRelationshipStatus('friends');
         showToast("🎉 It's a match! You are now friends.");
-      } else if (type === 'follow') {
-        showToast('❤️ Someone liked you!');
+      } else if (type === 'follow_request') {
+        showToast('❤️ Someone sent you a follow request!');
+        if (relationshipStatus === 'none') {
+          setRelationshipStatus('requested_by_them');
+        }
       } else {
-        showToast('❤️ Someone liked you!');
+        showToast('❤️ Someone interacted with you!');
       }
     });
 
@@ -617,22 +635,40 @@ export default function MatchPage() {
     if (!opp) return;
     const token = localStorage.getItem('token');
 
-    if (hasLiked) {
-      // Toggle OFF — unlike / retract follow
+    if (relationshipStatus === 'friends' || relationshipStatus === 'following' || relationshipStatus === 'requested_by_me') {
+      // Toggle OFF — unlike / unfollow
       try {
         await fetch(`${backendUrl}/api/friends/follow/${opp._id}`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` }
         });
-        setHasLiked(false);
-        setIsMutualFriend(false);
-        showToast('Follow request retracted.');
+        setRelationshipStatus('none');
+        showToast('Follow/friendship removed.');
       } catch (err) {
         console.error(err);
       }
       return;
     }
 
+    if (relationshipStatus === 'requested_by_them') {
+      // Accept their request
+      try {
+        const res = await fetch(`${backendUrl}/api/friends/follow/${opp._id}/accept`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          setRelationshipStatus(data.isMatch ? 'friends' : 'following');
+          showToast(data.message);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+
+    // Otherwise, send a request
     try {
       const res = await fetch(`${backendUrl}/api/friends/follow/${opp._id}`, {
         method: 'POST',
@@ -640,19 +676,11 @@ export default function MatchPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setHasLiked(true);
-        if (data.isMatch) {
-          setIsMutualFriend(true);
-          if (socketRef.current) {
-            socketRef.current.emit('match_like', { toUserId: opp._id, type: 'follow_match' });
-          }
-          showToast("🎉 It's a match! You are now friends.");
-        } else {
-          if (socketRef.current) {
-            socketRef.current.emit('match_like', { toUserId: opp._id, type: 'follow' });
-          }
-          showToast('👍 Follow request sent!');
+        setRelationshipStatus(data.isMatch ? 'friends' : 'requested_by_me');
+        if (socketRef.current) {
+          socketRef.current.emit('match_like', { toUserId: opp._id, type: 'follow_request' });
         }
+        showToast(data.message);
       }
     } catch (err) {
       console.error(err);
@@ -887,11 +915,39 @@ export default function MatchPage() {
                       )}
                       <button
                         onClick={handleFollow}
-                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${hasLiked ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-secondary text-muted-foreground hover:text-foreground border border-border'}`}
-                        title={hasLiked ? "Unlike (Cancel Request)" : "Like (Add Friend)"}
+                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          relationshipStatus === 'friends' ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 
+                          relationshipStatus === 'following' ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' :
+                          relationshipStatus === 'requested_by_me' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                          relationshipStatus === 'requested_by_them' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30 animate-pulse' :
+                          'bg-secondary text-muted-foreground hover:text-foreground border border-border'
+                        }`}
+                        title={
+                          relationshipStatus === 'friends' ? "Unfriend" : 
+                          relationshipStatus === 'following' ? "Unfollow" :
+                          relationshipStatus === 'requested_by_me' ? "Cancel Request" :
+                          relationshipStatus === 'requested_by_them' ? "Accept Request" :
+                          "Follow (Send Request)"
+                        }
                       >
-                        <Heart size={14} className={hasLiked ? "fill-current text-pink-400" : ""} />
-                        <span>{isMutualFriend ? "Mutual Friends" : hasLiked ? "Following" : "Like"}</span>
+                        {relationshipStatus === 'friends' ? (
+                          <CheckCircle2 size={14} className="text-green-400" />
+                        ) : relationshipStatus === 'following' ? (
+                          <CheckCircle2 size={14} className="text-blue-400" />
+                        ) : relationshipStatus === 'requested_by_me' ? (
+                          <Heart size={14} className="text-amber-400" />
+                        ) : relationshipStatus === 'requested_by_them' ? (
+                          <Heart size={14} className="text-purple-400" />
+                        ) : (
+                          <Heart size={14} />
+                        )}
+                        <span>
+                          {relationshipStatus === 'friends' ? "Friends" : 
+                           relationshipStatus === 'following' ? "Following" :
+                           relationshipStatus === 'requested_by_me' ? "Requested" :
+                           relationshipStatus === 'requested_by_them' ? "Accept Follow" :
+                           "Follow"}
+                        </span>
                       </button>
                       <button
                         onClick={handleTrustLike}

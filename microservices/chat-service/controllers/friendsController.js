@@ -5,7 +5,7 @@ import { Message } from '../models/Message.js';
 import { redisClient } from '../config/db.js';
 import { createAndSendNotification } from '../services/notificationService.js';
 
-// Follow or Like a matched opponent
+// Send a follow request
 export const followUser = async (req, res) => {
   const likerId = req.user._id;
   const likedId = req.params.id;
@@ -20,10 +20,6 @@ export const followUser = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found.' });
     }
 
-    // Increment follower/following counts
-    await User.findByIdAndUpdate(likerId, { $inc: { followingCount: 1 } });
-    await User.findByIdAndUpdate(likedId, { $inc: { followersCount: 1 } });
-
     // Check if Friendship already exists
     const existingFriendship = await Friendship.findOne({
       $or: [
@@ -36,56 +32,151 @@ export const followUser = async (req, res) => {
       return res.json({ success: true, isMatch: true, message: 'Already friends.' });
     }
 
-    // Check if opponent already liked the current user (reciprocal)
-    const opponentLike = await Like.findOne({ liker: likedId, liked: likerId });
-
-    if (opponentLike) {
-      // Reciprocal match! Create friendship.
-      const friendship = new Friendship({
-        user1: likerId,
-        user2: likedId
-      });
-      await friendship.save();
-
-      // Delete the temporary like
-      await Like.findByIdAndDelete(opponentLike._id);
-
-      // Create notifications for both
-      await createAndSendNotification({
-        recipient: likedId,
-        sender: likerId,
-        type: 'friend_accept',
-        message: `${req.user.username} liked you back! You are now friends.`
-      });
-
-      await createAndSendNotification({
-        recipient: likerId,
-        sender: likedId,
-        type: 'friend_accept',
-        message: `You connected with ${opponent.username}! You are now friends.`
-      });
-
-      return res.json({ success: true, isMatch: true, message: 'It is a match! You are now friends.' });
+    // Check if we already sent a request or are already following
+    const existingLike = await Like.findOne({ liker: likerId, liked: likedId });
+    if (existingLike) {
+      if (existingLike.status === 'accepted') {
+        return res.json({ success: true, message: 'Already following.' });
+      }
+      return res.json({ success: true, message: 'Follow request already sent.' });
     }
 
-    // Single-sided follow: Store the like
-    await Like.findOneAndUpdate(
-      { liker: likerId, liked: likedId },
-      { liker: likerId, liked: likedId },
-      { upsert: true, new: true }
-    );
+    // Create a new pending follow request
+    await Like.create({
+      liker: likerId,
+      liked: likedId,
+      status: 'pending'
+    });
 
-    // Create follow notification
+    // Create follow request notification
     await createAndSendNotification({
       recipient: likedId,
       sender: likerId,
-      type: 'friend_request',
-      message: `${req.user.username} followed you.`
+      type: 'follow_request',
+      message: `${req.user.username} sent you a follow request.`
     });
 
-    res.json({ success: true, isMatch: false, message: 'Followed user.' });
+    res.json({ success: true, isMatch: false, message: 'Follow request sent.' });
   } catch (error) {
     console.error('Follow user error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// Accept a follow request
+export const acceptFollow = async (req, res) => {
+  const likedId = req.user._id;
+  const likerId = req.params.id; // The person who sent the request
+
+  try {
+    const pendingLike = await Like.findOne({ liker: likerId, liked: likedId, status: 'pending' });
+    if (!pendingLike) {
+      return res.status(404).json({ success: false, message: 'Follow request not found or already processed.' });
+    }
+
+    // Mark as accepted
+    pendingLike.status = 'accepted';
+    await pendingLike.save();
+
+    // Increment counts
+    await User.findByIdAndUpdate(likerId, { $inc: { followingCount: 1 } });
+    await User.findByIdAndUpdate(likedId, { $inc: { followersCount: 1 } });
+
+    const likerUser = await User.findById(likerId).select('username');
+
+    // Notify the liker that their request was accepted
+    await createAndSendNotification({
+      recipient: likerId,
+      sender: likedId,
+      type: 'friend_accept', // We can reuse this type for general acceptances
+      message: `${req.user.username} accepted your follow request.`
+    });
+
+    // Check if the other person is also following back (reciprocal accepted like)
+    const reciprocalLike = await Like.findOne({ liker: likedId, liked: likerId, status: 'accepted' });
+    if (reciprocalLike) {
+      // Both are following each other! Create friendship.
+      const existingFriendship = await Friendship.findOne({
+        $or: [
+          { user1: likerId, user2: likedId },
+          { user1: likedId, user2: likerId }
+        ]
+      });
+
+      if (!existingFriendship) {
+        await Friendship.create({ user1: likerId, user2: likedId });
+        
+        // Notify both that they are now mutual friends
+        await createAndSendNotification({
+          recipient: likedId,
+          sender: likerId,
+          type: 'friend_accept',
+          message: `You and ${likerUser.username} are now mutual friends!`
+        });
+        await createAndSendNotification({
+          recipient: likerId,
+          sender: likedId,
+          type: 'friend_accept',
+          message: `You and ${req.user.username} are now mutual friends!`
+        });
+      }
+      return res.json({ success: true, isMatch: true, message: 'Follow request accepted. You are now mutual friends!' });
+    }
+
+    res.json({ success: true, isMatch: false, message: 'Follow request accepted.' });
+  } catch (error) {
+    console.error('Accept follow error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// Reject a follow request
+export const rejectFollow = async (req, res) => {
+  const likedId = req.user._id;
+  const likerId = req.params.id;
+
+  try {
+    const deleted = await Like.findOneAndDelete({ liker: likerId, liked: likedId, status: 'pending' });
+    if (!deleted) {
+      return res.status(404).json({ success: false, message: 'Follow request not found or already processed.' });
+    }
+    res.json({ success: true, message: 'Follow request rejected.' });
+  } catch (error) {
+    console.error('Reject follow error:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+};
+
+// Get Relationship Status
+export const getRelationshipStatus = async (req, res) => {
+  const currentUserId = req.user._id;
+  const targetId = req.params.id;
+
+  try {
+    const existingFriendship = await Friendship.findOne({
+      $or: [
+        { user1: currentUserId, user2: targetId },
+        { user1: targetId, user2: currentUserId }
+      ]
+    });
+
+    if (existingFriendship) {
+      return res.json({ success: true, status: 'friends' });
+    }
+
+    const myLike = await Like.findOne({ liker: currentUserId, liked: targetId });
+    if (myLike) {
+      if (myLike.status === 'pending') {
+        return res.json({ success: true, status: 'requested_by_me' });
+      }
+      if (myLike.status === 'accepted') {
+        return res.json({ success: true, status: 'following' });
+      }
+    }
+
+    res.json({ success: true, status: 'none' });
+  } catch (error) {
+    console.error('Get relationship status error:', error);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 };
@@ -96,12 +187,12 @@ export const unfollowUser = async (req, res) => {
   const likedId = req.params.id;
 
   try {
-    // Delete the pending like record
-    await Like.findOneAndDelete({ liker: likerId, liked: likedId });
-
-    // Decrement counts
-    await User.findByIdAndUpdate(likerId, { $inc: { followingCount: -1 } });
-    await User.findByIdAndUpdate(likedId, { $inc: { followersCount: -1 } });
+    // If it was accepted, we need to decrement counts
+    const like = await Like.findOneAndDelete({ liker: likerId, liked: likedId });
+    if (like && like.status === 'accepted') {
+      await User.findByIdAndUpdate(likerId, { $inc: { followingCount: -1 } });
+      await User.findByIdAndUpdate(likedId, { $inc: { followersCount: -1 } });
+    }
 
     res.json({ success: true, message: 'Unfollowed user.' });
   } catch (error) {

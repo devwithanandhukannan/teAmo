@@ -275,13 +275,13 @@ export const ProfileDrawer: React.FC = () => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-[999] flex items-center justify-end animate-in fade-in duration-300">
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-md z-[999] flex items-center justify-end animate-in fade-in duration-300">
       {/* Sliding Drawer Body */}
-      <div className="w-full max-w-md h-full bg-[#050505] border-l border-white/10 p-6 flex flex-col justify-between overflow-y-auto shadow-2xl relative animate-in slide-in-from-right duration-300">
+      <div className="w-full max-w-md h-full bg-background border-l border-border p-6 flex flex-col justify-between overflow-y-auto shadow-2xl relative animate-in slide-in-from-right duration-300">
         
         <button 
           onClick={() => setIsOpen(false)} 
-          className="absolute top-6 right-6 text-gray-400 hover:text-white transition p-1 bg-white/5 hover:bg-white/10 rounded-lg"
+          className="absolute top-6 right-6 text-muted-foreground hover:text-foreground transition p-1 bg-secondary hover:bg-accent rounded-lg"
         >
           <X size={20} />
         </button>
@@ -289,7 +289,7 @@ export const ProfileDrawer: React.FC = () => {
         {loading && !profile ? (
           <div className="flex-1 flex flex-col items-center justify-center">
             <Loader2 className="animate-spin text-indigo-400" size={32} />
-            <span className="text-xs text-gray-500 mt-2">Loading credentials...</span>
+            <span className="text-xs text-muted-foreground mt-2">Loading credentials...</span>
           </div>
         ) : (
           profile && (
@@ -297,14 +297,14 @@ export const ProfileDrawer: React.FC = () => {
               <div className="space-y-6">
                 
                 {/* Header card displaying current user */}
-                <div className="flex items-center gap-4 border-b border-white/5 pb-4 mt-6">
+                <div className="flex items-center gap-4 border-b border-border pb-4 mt-6">
                   <img 
                     src={editAvatarUrl || profile.avatarUrl} 
                     alt="Avatar" 
-                    className="h-14 w-14 rounded-full border-2 border-indigo-500/50 bg-gray-900 object-cover" 
+                    className="h-14 w-14 rounded-full border-2 border-indigo-500/50 bg-muted object-cover" 
                   />
                   <div>
-                    <h3 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-1.5">
+                    <h3 className="text-sm font-black text-foreground uppercase tracking-tight flex items-center gap-1.5">
                       {profile.username} <Zap size={12} className="text-indigo-400" />
                     </h3>
                     <span className="text-[10px] text-indigo-400 font-bold block mt-0.5">Trust Rank: {profile.trustRank}%</span>
@@ -312,24 +312,24 @@ export const ProfileDrawer: React.FC = () => {
                 </div>
 
                 {/* Social count statistics */}
-                <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-4">
-                  <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3 text-center">
-                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">Followers</span>
-                    <span className="text-base font-black text-white block mt-1">{profile.followersCount}</span>
+                <div className="grid grid-cols-2 gap-4 border-b border-border pb-4">
+                  <div className="bg-card border border-border rounded-2xl p-3 text-center">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Followers</span>
+                    <span className="text-base font-black text-foreground block mt-1">{profile.followersCount}</span>
                   </div>
-                  <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-3 text-center">
-                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block">Following</span>
-                    <span className="text-base font-black text-white block mt-1">{profile.followingCount}</span>
+                  <div className="bg-card border border-border rounded-2xl p-3 text-center">
+                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block">Following</span>
+                    <span className="text-base font-black text-foreground block mt-1">{profile.followingCount}</span>
                   </div>
                 </div>
 
                 {/* Configuration form */}
                 <form onSubmit={handleSaveProfile} className="space-y-4">
-                  <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-wider">Basic Details</h4>
+                  <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Basic Details</h4>
                   
                   {/* Username Field */}
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Username</label>
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Username</label>
                     <div className="relative">
                       <input
                         type="text"
@@ -338,11 +338,11 @@ export const ProfileDrawer: React.FC = () => {
                         required
                         className={`w-full p-2.5 text-xs rounded-xl glass-input font-bold pr-10 border ${
                           usernameStatus === 'available' ? 'border-green-500/30' :
-                          usernameStatus === 'taken' || usernameStatus === 'too-short' ? 'border-red-500/30' : 'border-white/5'
+                          usernameStatus === 'taken' || usernameStatus === 'too-short' ? 'border-red-500/30' : 'border-border'
                         }`}
                       />
                       <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center">
-                        {usernameStatus === 'checking' && <Loader2 className="animate-spin text-gray-500" size={14} />}
+                        {usernameStatus === 'checking' && <Loader2 className="animate-spin text-muted-foreground" size={14} />}
                         {usernameStatus === 'available' && <CheckCircle2 className="text-green-500" size={14} />}
                         {(usernameStatus === 'taken' || usernameStatus === 'too-short') && <AlertCircle className="text-red-500" size={14} />}
                       </div>
@@ -360,8 +360,8 @@ export const ProfileDrawer: React.FC = () => {
 
                   {/* Avatar Predefined selector grid */}
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Select Avatar Icon</label>
-                    <div className="grid grid-cols-4 gap-2 bg-white/[0.01] border border-white/5 p-2 rounded-2xl">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">Select Avatar Icon</label>
+                    <div className="grid grid-cols-4 gap-2 bg-card border border-border p-2 rounded-2xl">
                       {[
                         'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix',
                         'https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka',
@@ -377,19 +377,19 @@ export const ProfileDrawer: React.FC = () => {
                           type="button"
                           onClick={() => setEditAvatarUrl(url)}
                           className={`h-11 w-11 rounded-full overflow-hidden p-[1.5px] border-2 transition ${
-                            editAvatarUrl === url ? 'border-indigo-500 scale-105 bg-indigo-500/10' : 'border-white/5 hover:border-white/10'
+                            editAvatarUrl === url ? 'border-indigo-500 scale-105 bg-indigo-500/10' : 'border-border hover:border-border'
                           }`}
                         >
-                          <img src={url} alt="Avatar" className="h-full w-full rounded-full bg-gray-950 object-cover" />
+                          <img src={url} alt="Avatar" className="h-full w-full rounded-full bg-muted object-cover" />
                         </button>
                       ))}
                     </div>
                   </div>
 
-                  <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-wider border-t border-white/5 pt-4">Dating Profile Details</h4>
+                  <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider border-t border-border pt-4">Dating Profile Details</h4>
                   
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">About Me</label>
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">About Me</label>
                     <textarea
                       value={editAbout}
                       onChange={(e) => setEditAbout(e.target.value)}
@@ -399,7 +399,7 @@ export const ProfileDrawer: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Hobbies (comma-separated)</label>
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Hobbies (comma-separated)</label>
                     <input
                       type="text"
                       value={editHobbies}
@@ -411,7 +411,7 @@ export const ProfileDrawer: React.FC = () => {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Education</label>
+                      <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Education</label>
                       <input
                         type="text"
                         value={editEducation}
@@ -420,7 +420,7 @@ export const ProfileDrawer: React.FC = () => {
                       />
                     </div>
                     <div>
-                      <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Job Role</label>
+                      <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Job Role</label>
                       <input
                         type="text"
                         value={editJob}
@@ -431,7 +431,7 @@ export const ProfileDrawer: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Looking For</label>
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-1">Looking For</label>
                     <input
                       type="text"
                       value={editPreference}
@@ -442,11 +442,11 @@ export const ProfileDrawer: React.FC = () => {
                   </div>
 
                   {/* Interests configurator */}
-                  <div className="border-t border-white/5 pt-4">
-                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest block mb-2">Interests (Max 4)</label>
+                  <div className="border-t border-border pt-4">
+                    <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">Interests (Max 4)</label>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {editingInterests.map(tag => (
-                        <span key={tag} className="inline-flex items-center gap-1 bg-white/5 border border-white/10 px-2.5 py-1 rounded-xl text-[10px] text-gray-300 font-bold">
+                        <span key={tag} className="inline-flex items-center gap-1 bg-secondary border border-border px-2.5 py-1 rounded-xl text-[10px] text-foreground font-bold">
                           #{tag}
                           <button type="button" onClick={() => removeInterestTag(tag)} className="text-red-400 hover:text-red-500 font-bold ml-1 text-xs">×</button>
                         </span>
@@ -475,8 +475,8 @@ export const ProfileDrawer: React.FC = () => {
                 </form>
 
                 {/* Email update OTP workflow */}
-                <div className="border-t border-white/5 pt-4">
-                  <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-wider mb-3">Modify Contact Email</h4>
+                <div className="border-t border-border pt-4">
+                  <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-3">Modify Contact Email</h4>
                   {!emailOtpStep ? (
                     <form onSubmit={handleEmailRequest} className="space-y-3">
                       <input
@@ -489,7 +489,7 @@ export const ProfileDrawer: React.FC = () => {
                       <button 
                         type="submit" 
                         disabled={emailUpdateLoading || !newEmail}
-                        className="w-full py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 text-xs font-bold rounded-xl transition flex items-center justify-center disabled:opacity-50"
+                        className="w-full py-2.5 bg-secondary hover:bg-accent border border-border text-foreground text-xs font-bold rounded-xl transition flex items-center justify-center disabled:opacity-50"
                       >
                         {emailUpdateLoading ? <Loader2 className="animate-spin" size={14} /> : 'Send Verification OTP'}
                       </button>
@@ -514,7 +514,7 @@ export const ProfileDrawer: React.FC = () => {
                       <button 
                         type="button" 
                         onClick={() => setEmailOtpStep(false)}
-                        className="text-[9px] text-gray-500 hover:text-white block mx-auto mt-2"
+                        className="text-[9px] text-muted-foreground hover:text-foreground block mx-auto mt-2"
                       >
                         Cancel modification
                       </button>
@@ -523,7 +523,7 @@ export const ProfileDrawer: React.FC = () => {
                 </div>
 
                 {/* Logout Option */}
-                <div className="border-t border-white/5 pt-4">
+                <div className="border-t border-border pt-4">
                   <button 
                     onClick={handleLogout}
                     className="w-full py-2.5 bg-red-950/20 hover:bg-red-950/40 text-red-500 border border-red-500/10 rounded-xl text-xs font-black tracking-wider uppercase transition text-center"

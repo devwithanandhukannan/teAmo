@@ -17,7 +17,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background relative overflow-x-hidden overflow-y-auto flex flex-col justify-center items-center px-4 py-20">
+    <div className="h-screen bg-background relative overflow-hidden flex flex-col justify-center items-center px-4">
       {/* Background radial accent glow */}
       <div className="absolute top-[-15%] left-[-15%] w-[60%] h-[60%] bg-indigo-500/10 rounded-full blur-[140px] pointer-events-none"></div>
       <div className="absolute bottom-[-15%] right-[-15%] w-[60%] h-[60%] bg-pink-500/10 rounded-full blur-[140px] pointer-events-none"></div>
