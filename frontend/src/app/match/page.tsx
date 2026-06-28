@@ -274,14 +274,25 @@ export default function MatchPage() {
         pendingSignalsRef.current.push(signalData);
         return;
       }
+      
+      const pcAny = pc as any;
 
       try {
         if (signalData.offer) {
           console.log('[WebRTC] Received offer');
-          await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socket.emit('signal', { signalData: { answer } });
+          if (pc.signalingState !== 'stable' || pcAny._isSettingRemote) {
+            console.warn('[WebRTC] Ignoring offer due to state or already setting:', pc.signalingState);
+            return;
+          }
+          pcAny._isSettingRemote = true;
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socket.emit('signal', { signalData: { answer } });
+          } finally {
+            pcAny._isSettingRemote = false;
+          }
           
           // Process queued candidates now that remote description is set
           const candidates = [...pendingCandidatesRef.current];
@@ -291,7 +302,16 @@ export default function MatchPage() {
           }
         } else if (signalData.answer) {
           console.log('[WebRTC] Received answer');
-          await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
+          if (pc.signalingState !== 'have-local-offer' || pcAny._isSettingRemote) {
+            console.warn('[WebRTC] Ignoring answer due to state or already setting:', pc.signalingState);
+            return;
+          }
+          pcAny._isSettingRemote = true;
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
+          } finally {
+            pcAny._isSettingRemote = false;
+          }
           
           // Process queued candidates now that remote description is set
           const candidates = [...pendingCandidatesRef.current];
@@ -537,18 +557,31 @@ export default function MatchPage() {
       peerConnectionRef.current = pc;
 
       // Process any early signals that arrived before PeerConnection was initialized
+      const pcAny = pc as any;
       const earlySignals = [...pendingSignalsRef.current];
       pendingSignalsRef.current = [];
       for (const sig of earlySignals) {
         if (sig.offer) {
           console.log('[WebRTC] Processing early offer');
-          await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socketRef.current?.emit('signal', { signalData: { answer } });
+          if (pc.signalingState !== 'stable' || pcAny._isSettingRemote) continue;
+          pcAny._isSettingRemote = true;
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            socketRef.current?.emit('signal', { signalData: { answer } });
+          } finally {
+            pcAny._isSettingRemote = false;
+          }
         } else if (sig.answer) {
           console.log('[WebRTC] Processing early answer');
-          await pc.setRemoteDescription(new RTCSessionDescription(sig.answer));
+          if (pc.signalingState !== 'have-local-offer' || pcAny._isSettingRemote) continue;
+          pcAny._isSettingRemote = true;
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(sig.answer));
+          } finally {
+            pcAny._isSettingRemote = false;
+          }
         } else if (sig.candidate) {
           if (pc.remoteDescription) {
             await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));

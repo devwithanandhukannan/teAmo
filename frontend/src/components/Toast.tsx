@@ -94,13 +94,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     {notif.type === 'friend_accept' ? 'New Match!' : 
                      notif.type === 'friend_request' ? 'New Connection' : 'Alert'}
                   </span>
-                  <p className="text-xs font-bold mt-0.5 leading-snug break-words">
+                  <p className="text-[10px] font-bold mt-0.5 leading-snug break-words">
                     {notif.message}
                   </p>
                 </>
               ) : (
                 <div className="flex items-center h-full pt-1.5">
-                  <span className="text-xs font-bold">{notif.message}</span>
+                  <span className="text-[10px] font-bold">{notif.message}</span>
                 </div>
               )}
             </div>

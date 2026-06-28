@@ -19,6 +19,7 @@ export const ProfileDrawer: React.FC = () => {
   const [editEducation, setEditEducation] = useState('');
   const [editJob, setEditJob] = useState('');
   const [editPreference, setEditPreference] = useState('');
+  const [editNotifyWhenOnline, setEditNotifyWhenOnline] = useState(true);
   const [editingInterests, setEditingInterests] = useState<string[]>([]);
   const [interestInput, setInterestInput] = useState('');
 
@@ -58,6 +59,7 @@ export const ProfileDrawer: React.FC = () => {
         setEditEducation(data.user.education || '');
         setEditJob(data.user.job || '');
         setEditPreference(data.user.preference || '');
+        setEditNotifyWhenOnline(data.user.notifyWhenOnline ?? true);
       }
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -148,7 +150,8 @@ export const ProfileDrawer: React.FC = () => {
           education: editEducation,
           job: editJob,
           preference: editPreference,
-          interests: editingInterests
+          interests: editingInterests,
+          notifyWhenOnline: editNotifyWhenOnline
         })
       });
       const data = await res.json();
@@ -361,16 +364,42 @@ export const ProfileDrawer: React.FC = () => {
                   {/* Avatar Predefined selector grid */}
                   <div>
                     <label className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest block mb-2">Select Avatar Icon</label>
-                    <div className="grid grid-cols-4 gap-2 bg-card border border-border p-2 rounded-2xl">
+                    <div className="grid grid-cols-4 gap-2 bg-card border border-border p-2 rounded-2xl max-h-64 overflow-y-auto">
                       {[
+                        // Adventurer
                         'https://api.dicebear.com/7.x/adventurer/svg?seed=Felix',
                         'https://api.dicebear.com/7.x/adventurer/svg?seed=Aneka',
+                        'https://api.dicebear.com/7.x/adventurer/svg?seed=Jack',
+                        'https://api.dicebear.com/7.x/adventurer/svg?seed=Jude',
+                        // Bottts
                         'https://api.dicebear.com/7.x/bottts/svg?seed=Robo',
                         'https://api.dicebear.com/7.x/bottts/svg?seed=Cody',
+                        'https://api.dicebear.com/7.x/bottts/svg?seed=Zia',
+                        'https://api.dicebear.com/7.x/bottts/svg?seed=Buster',
+                        // Pixel Art
                         'https://api.dicebear.com/7.x/pixel-art/svg?seed=Pico',
                         'https://api.dicebear.com/7.x/pixel-art/svg?seed=Lola',
+                        'https://api.dicebear.com/7.x/pixel-art/svg?seed=Riko',
+                        'https://api.dicebear.com/7.x/pixel-art/svg?seed=Nina',
+                        // Lorelei
                         'https://api.dicebear.com/7.x/lorelei/svg?seed=Luna',
-                        'https://api.dicebear.com/7.x/lorelei/svg?seed=Leo'
+                        'https://api.dicebear.com/7.x/lorelei/svg?seed=Leo',
+                        'https://api.dicebear.com/7.x/lorelei/svg?seed=Milo',
+                        'https://api.dicebear.com/7.x/lorelei/svg?seed=Sadie',
+                        // Fun Emoji
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Happy',
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Cool',
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Wink',
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Love',
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Star',
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Laugh',
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Sleepy',
+                        'https://api.dicebear.com/7.x/fun-emoji/svg?seed=Shy',
+                        // Avataaars
+                        'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
+                        'https://api.dicebear.com/7.x/avataaars/svg?seed=Sam',
+                        'https://api.dicebear.com/7.x/avataaars/svg?seed=Nora',
+                        'https://api.dicebear.com/7.x/avataaars/svg?seed=Max'
                       ].map((url) => (
                         <button
                           key={url}
@@ -464,6 +493,24 @@ export const ProfileDrawer: React.FC = () => {
                         <button type="button" onClick={addInterestTag} className="bg-white hover:bg-gray-200 text-black px-4 rounded-xl text-xs font-black transition">Add</button>
                       </div>
                     )}
+                  </div>
+
+                  <div className="pt-2">
+                    <h4 className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-3">Privacy Settings</h4>
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <div className="relative">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only" 
+                          checked={editNotifyWhenOnline}
+                          onChange={(e) => setEditNotifyWhenOnline(e.target.checked)}
+                        />
+                        <div className={`block w-10 h-6 rounded-full transition-colors ${editNotifyWhenOnline ? 'bg-white' : 'bg-secondary border border-border'}`}></div>
+                        <div className={`absolute left-1 top-1 bg-black w-4 h-4 rounded-full transition-transform ${editNotifyWhenOnline ? 'translate-x-4 bg-black' : 'translate-x-0 bg-muted-foreground'}`}></div>
+                      </div>
+                      <span className="text-xs font-bold text-foreground group-hover:text-white transition">Notify friends when I come online</span>
+                    </label>
+                    <p className="text-[9px] text-muted-foreground mt-1 ml-12">If disabled, mutual friends won't be alerted when you log in.</p>
                   </div>
 
                   <button 

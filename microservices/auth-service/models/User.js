@@ -44,6 +44,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  notifyWhenOnline: {
+    type: Boolean,
+    default: true
+  },
   isBanned: {
     type: Boolean,
     default: false

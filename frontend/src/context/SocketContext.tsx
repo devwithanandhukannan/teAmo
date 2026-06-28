@@ -254,7 +254,18 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
 
     newSocket.on('friend_online', ({ userId }) => {
-      setFriends(prev => prev.map(f => f._id === userId ? { ...f, isOnline: true } : f));
+      setFriends(prev => {
+        const friend = prev.find(f => f._id === userId);
+        if (friend && !friend.isOnline) {
+          // Defer the dispatch so it doesn't run synchronously during the React render phase
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('show-system-notification', {
+              detail: { type: 'success', message: `${friend.username} came online!` }
+            }));
+          }, 0);
+        }
+        return prev.map(f => f._id === userId ? { ...f, isOnline: true } : f);
+      });
       fetchNotifications();
     });
 

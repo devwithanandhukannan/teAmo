@@ -293,16 +293,23 @@ export default function FriendsPage() {
     // This page only handles call state changes once the call is active
 
     socket.on('call_accepted', async ({ answer }) => {
-      const pc = pcRef.current;
+      const pc = pcRef.current as any;
       if (pc) {
-        if (pc.signalingState !== 'have-local-offer') {
-          console.warn('Ignoring call_accepted due to state:', pc.signalingState);
+        if (pc.signalingState !== 'have-local-offer' || pc._isSettingRemote) {
+          console.warn('Ignoring call_accepted due to state or already setting:', pc.signalingState);
           return;
         }
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        setCallState('active');
-        setCallConnected(false);
-        await processPendingCallSignals(pc);
+        pc._isSettingRemote = true;
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          setCallState('active');
+          setCallConnected(false);
+          await processPendingCallSignals(pc);
+        } catch (error) {
+          console.error('Error applying remote description:', error);
+        } finally {
+          pc._isSettingRemote = false;
+        }
       }
     });
 
@@ -429,6 +436,7 @@ export default function FriendsPage() {
   const startCall = async (friend: Friend) => {
     if (!socket) return;
     if (isAcceptingCallRef.current) return;
+    isAcceptingCallRef.current = true; // Use this as a general lock for starting or accepting
     setCallPartner(friend);
     setCallConnected(false);
     setCallState('calling');

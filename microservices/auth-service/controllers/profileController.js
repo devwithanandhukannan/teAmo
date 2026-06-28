@@ -13,7 +13,7 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
   const { 
     username, interests, avatarUrl, isAnonymous, coordinates,
-    about, hobbies, education, job, preference
+    about, hobbies, education, job, preference, notifyWhenOnline
   } = req.body;
   
   try {
@@ -50,6 +50,7 @@ export const updateProfile = async (req, res) => {
     if (education !== undefined) user.education = education;
     if (job !== undefined) user.job = job;
     if (preference !== undefined) user.preference = preference;
+    if (notifyWhenOnline !== undefined) user.notifyWhenOnline = notifyWhenOnline;
 
     if (coordinates !== undefined && Array.isArray(coordinates) && coordinates.length === 2) {
       user.location = {

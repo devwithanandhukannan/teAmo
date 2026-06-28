@@ -498,6 +498,11 @@ const handleSkip = async (userId) => {
 
 const alertFriendsStatus = async (userId, isOnline) => {
   try {
+    const user = await User.findById(userId);
+    if (!user || user.notifyWhenOnline === false) {
+      return;
+    }
+
     const friendships = await Friendship.find({
       $or: [{ user1: userId }, { user2: userId }]
     });

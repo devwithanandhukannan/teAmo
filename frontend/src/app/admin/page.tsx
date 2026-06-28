@@ -229,10 +229,19 @@ export default function AdminPage() {
     });
 
     socket.on('call_accepted', async ({ answer }) => {
-      const pc = pcRef.current;
+      const pc = pcRef.current as any;
       if (pc) {
-        await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        setCallState('active');
+        if (pc.signalingState !== 'have-local-offer' || pc._isSettingRemote) {
+          console.warn('[Admin] Ignoring call_accepted due to state or setting:', pc.signalingState);
+          return;
+        }
+        pc._isSettingRemote = true;
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          setCallState('active');
+        } finally {
+          pc._isSettingRemote = false;
+        }
       }
     });
 
@@ -328,6 +337,7 @@ export default function AdminPage() {
 
     socket.on('signal', async ({ signalData }) => {
       const pc = pcRef.current;
+      const pcAny = pc as any;
       if (!pc) return;
       try {
         if (signalData.offer) {
@@ -339,11 +349,20 @@ export default function AdminPage() {
             
             stream.getTracks().forEach(track => pc.addTrack(track, stream));
             
-            await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('signal', { signalData: { answer } });
-            setCallState('active');
+            if (pc.signalingState !== 'stable' || pcAny._isSettingRemote) {
+              console.warn('[Admin] Ignoring offer due to state:', pc.signalingState);
+              return;
+            }
+            pcAny._isSettingRemote = true;
+            try {
+              await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
+              const answer = await pc.createAnswer();
+              await pc.setLocalDescription(answer);
+              socket.emit('signal', { signalData: { answer } });
+              setCallState('active');
+            } finally {
+              pcAny._isSettingRemote = false;
+            }
           } catch (err: any) {
             console.error('Signal video stream error:', err);
             if (err.message === 'SECURE_CONTEXT_REQUIRED') {
@@ -353,8 +372,17 @@ export default function AdminPage() {
             }
           }
         } else if (signalData.answer) {
-          await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
-          setCallState('active');
+          if (pc.signalingState !== 'have-local-offer' || pcAny._isSettingRemote) {
+            console.warn('[Admin] Ignoring answer due to state:', pc.signalingState);
+            return;
+          }
+          pcAny._isSettingRemote = true;
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
+            setCallState('active');
+          } finally {
+            pcAny._isSettingRemote = false;
+          }
         } else if (signalData.candidate) {
           await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
         }
