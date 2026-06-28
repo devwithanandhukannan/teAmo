@@ -1,5 +1,6 @@
 import { User } from '../models/User.js';
 import { Setting } from '../models/Setting.js';
+import { Report } from '../models/Report.js';
 import { encrypt, decrypt } from '../utils/crypto.js';
 import { redisClient } from '../config/db.js';
 import nodemailer from 'nodemailer';
@@ -231,6 +232,19 @@ export const getUsersList = async (req, res) => {
     res.json({ success: true, users });
   } catch (error) {
     console.error('Get users list error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+export const getReportsList = async (req, res) => {
+  try {
+    const reports = await Report.find()
+      .populate('reporter', 'username email avatarUrl lastIp')
+      .populate('reportedUser', 'username email avatarUrl lastIp')
+      .sort({ createdAt: -1 });
+    res.json({ success: true, reports });
+  } catch (error) {
+    console.error('Get reports list error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };

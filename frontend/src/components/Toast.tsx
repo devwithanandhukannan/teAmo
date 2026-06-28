@@ -60,55 +60,60 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     <ToastContext.Provider value={{ showToast }}>
       {children}
       
-      {/* Standard bottom Toast */}
-      {toastMessage && (
-        <div className="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 w-[90%] max-w-sm glass toast-animate rounded-2xl p-4 flex items-center justify-between shadow-2xl border border-white/10">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="text-indigo-400 shrink-0" size={18} />
-            <span className="text-xs font-bold text-gray-200">{toastMessage}</span>
-          </div>
-          <button 
-            onClick={() => setToastMessage(null)}
-            className="text-gray-400 hover:text-white transition ml-2 shrink-0"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
-      {/* Real-time system Notification Toast (top-right macOS style) */}
-      {sysNotification && (
-        <div className="fixed top-6 right-6 z-[9999] w-[90%] max-w-sm bg-neutral-950/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-start gap-3.5 shadow-2xl animate-in slide-in-from-top-4 duration-300">
-          {sysNotification.sender ? (
-            <img 
-              src={sysNotification.sender.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=Stranger'} 
-              alt="Sender" 
-              className="h-9 w-9 rounded-full border border-white/10 bg-gray-900 object-cover shrink-0 mt-0.5"
-            />
-          ) : (
-            <div className="h-9 w-9 rounded-full bg-white/5 border border-white/5 flex items-center justify-center shrink-0 mt-0.5">
-              {getNotificationIcon(sysNotification.type)}
+      {/* Standard and System Toasts container (Top-Left Stacked) */}
+      <div className="fixed top-24 left-6 z-[9999] flex flex-col gap-3 w-[90%] max-w-sm pointer-events-none">
+        
+        {/* Standard Toast */}
+        {toastMessage && (
+          <div className="pointer-events-auto w-full glass rounded-2xl p-4 flex items-center justify-between shadow-2xl border border-white/10 animate-in slide-in-from-left-4 duration-300">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="text-indigo-400 shrink-0" size={18} />
+              <span className="text-xs font-bold text-foreground">{toastMessage}</span>
             </div>
-          )}
-          
-          <div className="flex-1 min-w-0">
-            <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">
-              {sysNotification.type === 'friend_accept' ? 'New Match!' : 
-               sysNotification.type === 'friend_request' ? 'New Connection' : 'Alert'}
-            </span>
-            <p className="text-xs font-bold text-white mt-0.5 leading-snug break-words">
-              {sysNotification.message}
-            </p>
+            <button 
+              onClick={() => setToastMessage(null)}
+              className="text-muted-foreground hover:text-foreground transition ml-2 shrink-0 cursor-pointer"
+            >
+              <X size={14} />
+            </button>
           </div>
+        )}
 
-          <button 
-            onClick={() => setSysNotification(null)}
-            className="text-gray-500 hover:text-white transition p-1 bg-white/5 hover:bg-white/10 rounded-lg shrink-0"
-          >
-            <X size={12} />
-          </button>
-        </div>
-      )}
+        {/* Real-time system Notification Toast */}
+        {sysNotification && (
+          <div className="pointer-events-auto w-full bg-neutral-950/80 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-start gap-3.5 shadow-2xl animate-in slide-in-from-left-4 duration-300">
+            {sysNotification.sender ? (
+              <img 
+                src={sysNotification.sender.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=Stranger'} 
+                alt="Sender" 
+                className="h-9 w-9 rounded-full border border-white/10 bg-gray-900 object-cover shrink-0 mt-0.5"
+              />
+            ) : (
+              <div className="h-9 w-9 rounded-full bg-white/5 border border-white/5 flex items-center justify-center shrink-0 mt-0.5">
+                {getNotificationIcon(sysNotification.type)}
+              </div>
+            )}
+            
+            <div className="flex-1 min-w-0">
+              <span className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">
+                {sysNotification.type === 'friend_accept' ? 'New Match!' : 
+                 sysNotification.type === 'friend_request' ? 'New Connection' : 'Alert'}
+              </span>
+              <p className="text-xs font-bold text-white mt-0.5 leading-snug break-words">
+                {sysNotification.message}
+              </p>
+            </div>
+
+            <button 
+              onClick={() => setSysNotification(null)}
+              className="text-gray-500 hover:text-white transition p-1 bg-white/5 hover:bg-white/10 rounded-lg shrink-0 cursor-pointer"
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
+      </div>
     </ToastContext.Provider>
   );
 };

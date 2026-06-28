@@ -117,6 +117,10 @@ const userSchema = new mongoose.Schema({
   totalOnlineTime: {
     type: Number,
     default: 0
+  },
+  lastIp: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

@@ -6,9 +6,10 @@ import { useSocket } from '../../context/SocketContext';
 import { useToast } from '../../components/Toast';
 import { getBackendUrl, safeGetUserMedia } from '@/config';
 import { 
-  Video, MessageSquare, Sparkles, UserPlus, Heart, Flag, 
-  Send, Loader2, ShieldAlert, 
-  Shield, EyeOff, Users, X
+  Video, MessageSquare, Zap, UserPlus, Heart, Flag, 
+  ShieldAlert, VolumeX, CameraOff, PhoneOff, X, 
+  ShieldAlert as ShieldAlertIcon, RefreshCw, Send, Loader2,
+  Plus, Users, EyeOff, Shield
 } from 'lucide-react';
 
 interface Opponent {
@@ -51,6 +52,17 @@ export default function MatchPage() {
   const [mode, setMode] = useState<'text' | 'video'>('text');
   const [matchState, setMatchState] = useState<'idle' | 'searching' | 'connected' | 'group'>('idle');
   const [opponent, setOpponent] = useState<Opponent | null>(null);
+  const [lastOpponent, setLastOpponent] = useState<Opponent | null>(null);
+  const [isCallerState, setIsCallerState] = useState(false);
+  
+  const clearOpponentAndRecordPrevious = () => {
+    setOpponent(prev => {
+      if (prev) {
+        setLastOpponent(prev);
+      }
+      return null;
+    });
+  };
   const [sharedInterests, setSharedInterests] = useState<string[]>([]);
   const [chatLog, setChatLog] = useState<ChatMsg[]>([]);
   const [messageText, setMessageText] = useState('');
@@ -74,6 +86,7 @@ export default function MatchPage() {
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const pendingSignalsRef = useRef<any[]>([]);
+  const pendingCandidatesRef = useRef<RTCIceCandidateInit[]>([]);
   // Use refs for dock handlers to avoid stale closures
   const matchStateRef = useRef(matchState);
   const opponentRef = useRef(opponent);
@@ -179,7 +192,7 @@ export default function MatchPage() {
       const s = socketRef.current;
       if (!s) return;
       closePeerAndMedia();
-      setOpponent(null);
+      clearOpponentAndRecordPrevious();
       setMatchState('searching');
       s.emit('skip_match');
       s.emit('search_match');
@@ -189,7 +202,7 @@ export default function MatchPage() {
       if (!s) return;
       s.emit('skip_match');
       closePeerAndMedia();
-      setOpponent(null);
+      clearOpponentAndRecordPrevious();
       setMatchState('idle');
     };
     const handleDockFriend = () => {
@@ -231,48 +244,53 @@ export default function MatchPage() {
       setMatchState('connected');
 
       if (mode === 'video') {
-        try {
-          await startMediaAndCall(isCaller);
-        } catch (err) {
-          console.error('[WebRTC] startMediaAndCall in match_found error:', err);
-        }
+        setIsCallerState(isCaller);
       }
     });
 
     socket.on('signal', async ({ signalData }) => {
       const pc = peerConnectionRef.current;
       
-      // Queue ALL signal types if PC isn't ready yet
+      // Queue ALL signal types if PeerConnection isn't initialized yet
       if (!pc) {
-        pendingSignalsRef.current.push(signalData);
-        return;
-      }
-
-      // Queue candidates/answers if remote description not yet set
-      if (!pc.remoteDescription && (signalData.candidate || signalData.answer)) {
         pendingSignalsRef.current.push(signalData);
         return;
       }
 
       try {
         if (signalData.offer) {
+          console.log('[WebRTC] Received offer');
           await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('signal', { signalData: { answer } });
-          await drainPendingSignals(pc);
+          
+          // Process queued candidates now that remote description is set
+          const candidates = [...pendingCandidatesRef.current];
+          pendingCandidatesRef.current = [];
+          for (const cand of candidates) {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
         } else if (signalData.answer) {
+          console.log('[WebRTC] Received answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
-          await drainPendingSignals(pc);
+          
+          // Process queued candidates now that remote description is set
+          const candidates = [...pendingCandidatesRef.current];
+          pendingCandidatesRef.current = [];
+          for (const cand of candidates) {
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
+          }
         } else if (signalData.candidate) {
-          try {
+          if (pc.remoteDescription) {
             await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-          } catch (e) {
-            // ignore stale candidates
+          } else {
+            console.log('[WebRTC] Queueing ICE candidate (remoteDescription not set)');
+            pendingCandidatesRef.current.push(signalData.candidate);
           }
         }
       } catch (err) {
-        console.error('WebRTC signaling error:', err);
+        console.error('[WebRTC] signaling listener error:', err);
       }
     });
 
@@ -282,7 +300,7 @@ export default function MatchPage() {
 
     socket.on('match_skipped', () => {
       closePeerAndMedia();
-      setOpponent(null);
+      clearOpponentAndRecordPrevious();
       setMatchState('idle');
       showToast('Stranger skipped the hangout.');
     });
@@ -295,7 +313,7 @@ export default function MatchPage() {
 
     if (activeGroup) {
       closePeerAndMedia();
-      setOpponent(null);
+      clearOpponentAndRecordPrevious();
       setMatchState('group');
     }
 
@@ -309,33 +327,85 @@ export default function MatchPage() {
     };
   }, [socket, mode, activeGroup]);
 
-  // Drain ALL pending signals (offers, answers, candidates) once PC is ready
-  const drainPendingSignals = async (pc: RTCPeerConnection) => {
-    const queue = [...pendingSignalsRef.current];
-    pendingSignalsRef.current = [];
-    for (const signalData of queue) {
-      try {
-        if (signalData.offer && !pc.remoteDescription) {
-          // Process queued offer — this happens when offer arrived before PC was created
-          await pc.setRemoteDescription(new RTCSessionDescription(signalData.offer));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          if (socketRef.current) socketRef.current.emit('signal', { signalData: { answer } });
-        } else if (signalData.answer && !pc.remoteDescription) {
-          await pc.setRemoteDescription(new RTCSessionDescription(signalData.answer));
-        } else if (signalData.candidate) {
-          if (pc.remoteDescription) {
-            await pc.addIceCandidate(new RTCIceCandidate(signalData.candidate));
-          } else {
-            // Remote desc still not set — re-queue for next drain
-            pendingSignalsRef.current.push(signalData);
-          }
+  // Asynchronous WebRTC call streams initiator
+  useEffect(() => {
+    let active = true;
+    const setupCall = async () => {
+      if (matchState === 'connected' && mode === 'video' && opponent && active) {
+        try {
+          console.log('[WebRTC] Initiating media call streams...');
+          await startMediaAndCall(isCallerState);
+        } catch (err) {
+          console.error('[WebRTC] Asynchronous media call setup error:', err);
         }
-      } catch (e) {
-        console.warn('[WebRTC] drainPendingSignals error:', e);
       }
-    }
-  };
+    };
+    
+    const timer = setTimeout(setupCall, 150);
+    
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [matchState, mode, opponent, isCallerState]);
+
+  // Keydown keyboard shortcuts event handler
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (activeEl && (
+        activeEl.tagName === 'INPUT' || 
+        activeEl.tagName === 'TEXTAREA' || 
+        activeEl.getAttribute('contenteditable') === 'true'
+      )) {
+        return;
+      }
+
+      switch (e.code) {
+        case 'KeyM':
+        case 'Enter':
+          if (matchState === 'idle') {
+            e.preventDefault();
+            handleStartMatch();
+          }
+          break;
+        case 'KeyS':
+        case 'Space':
+          if (matchState === 'connected') {
+            e.preventDefault();
+            handleSkipMatch();
+          }
+          break;
+        case 'KeyR':
+          e.preventDefault();
+          setIsReportOpen(true);
+          break;
+        case 'KeyF':
+          if (matchState === 'connected') {
+            e.preventDefault();
+            handleFollow();
+          }
+          break;
+        case 'KeyT':
+          if (matchState === 'connected' && !hasTrustLiked) {
+            e.preventDefault();
+            handleTrustLike();
+          }
+          break;
+        case 'KeyC':
+          e.preventDefault();
+          setChatOpen(prev => !prev);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [matchState, hasTrustLiked, lastOpponent, opponent]);
 
   // WebRTC peer connection setup — correct order: setup handlers THEN process queued signals
   const startMediaAndCall = async (isCaller: boolean) => {
@@ -379,21 +449,27 @@ export default function MatchPage() {
       // Build a shared remote MediaStream so tracks are collected even if
       // the browser fires ontrack with individual tracks (no event.streams[])
       const remoteStream = new MediaStream();
-      if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
 
       // Add local tracks to peer connection
       stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
       // IMPORTANT: Set up ALL event handlers BEFORE assigning to ref or processing queued signals
       pc.ontrack = (event) => {
-        // Some browsers send streams[], others send individual tracks only
-        if (event.streams && event.streams[0]) {
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = event.streams[0];
+        console.log('[WebRTC] Remote track added:', event.track.kind);
+        const videoEl = remoteVideoRef.current;
+        if (videoEl) {
+          const streamToAssign = (event.streams && event.streams[0]) ? event.streams[0] : remoteStream;
+          
+          if (event.streams && !event.streams[0]) {
+            remoteStream.addTrack(event.track);
+          } else if (!event.streams) {
+            remoteStream.addTrack(event.track);
           }
-        } else {
-          // Fallback: add individual track to our pre-built stream
-          remoteStream.addTrack(event.track);
+          
+          if (videoEl.srcObject !== streamToAssign) {
+            videoEl.srcObject = streamToAssign;
+            console.log('[WebRTC] Remote video srcObject successfully bound');
+          }
         }
         setConnectionState('connected');
       };
@@ -430,8 +506,27 @@ export default function MatchPage() {
       // Assign to ref AFTER handlers are set up
       peerConnectionRef.current = pc;
 
-      // Drain any signals that arrived before this point
-      await drainPendingSignals(pc);
+      // Process any early signals that arrived before PeerConnection was initialized
+      const earlySignals = [...pendingSignalsRef.current];
+      pendingSignalsRef.current = [];
+      for (const sig of earlySignals) {
+        if (sig.offer) {
+          console.log('[WebRTC] Processing early offer');
+          await pc.setRemoteDescription(new RTCSessionDescription(sig.offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socketRef.current?.emit('signal', { signalData: { answer } });
+        } else if (sig.answer) {
+          console.log('[WebRTC] Processing early answer');
+          await pc.setRemoteDescription(new RTCSessionDescription(sig.answer));
+        } else if (sig.candidate) {
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(sig.candidate));
+          } else {
+            pendingCandidatesRef.current.push(sig.candidate);
+          }
+        }
+      }
 
       if (isCaller && socketRef.current) {
         const offer = await pc.createOffer({
@@ -460,6 +555,7 @@ export default function MatchPage() {
       peerConnectionRef.current = null;
     }
     pendingSignalsRef.current = [];
+    pendingCandidatesRef.current = [];
     setConnectionState(null);
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach(track => track.stop());
@@ -479,7 +575,7 @@ export default function MatchPage() {
   const handleSkipMatch = () => {
     if (!socket) return;
     closePeerAndMedia();
-    setOpponent(null);
+    clearOpponentAndRecordPrevious();
     setMatchState('searching');
     socket.emit('skip_match');
     socket.emit('search_match');
@@ -571,11 +667,12 @@ export default function MatchPage() {
 
   const handleReport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!opponent || !reportReason.trim()) return;
+    const target = opponent || lastOpponent;
+    if (!target || !reportReason.trim()) return;
     setReporting(true);
     const token = localStorage.getItem('token');
     const formData = new FormData();
-    formData.append('targetId', opponent._id);
+    formData.append('targetId', target._id);
     formData.append('reason', reportReason);
     if (reportFile) formData.append('screenshot', reportFile);
     try {
@@ -586,11 +683,13 @@ export default function MatchPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast('Report submitted. Skipping stranger.');
+        showToast('Report submitted successfully.');
         setIsReportOpen(false);
         setReportReason('');
         setReportFile(null);
-        handleSkipMatch();
+        if (opponent) {
+          handleSkipMatch();
+        }
       }
     } catch (err) {
       console.error(err);
@@ -620,7 +719,7 @@ export default function MatchPage() {
   const isLoungeConnected = matchState === 'connected' || matchState === 'group';
 
   return (
-    <div className={`min-h-screen pt-32 pb-36 flex flex-col items-center px-4 relative overflow-hidden transition-all duration-500 ${isLikedFlashing ? 'bg-red-900' : 'bg-[#000000]'}`}>
+    <div className={`min-h-screen pt-40 pb-36 flex flex-col items-center px-4 relative overflow-hidden transition-all duration-500 ${isLikedFlashing ? 'bg-red-900' : 'bg-background'}`}>
       
       {/* Like flash full-page overlay */}
       {isLikedFlashing && (
@@ -638,8 +737,8 @@ export default function MatchPage() {
         </>
       ) : (
         <>
-          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-white/5 rounded-full blur-[120px] pointer-events-none" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-gray-900/10 rounded-full blur-[120px] pointer-events-none" />
+          <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-secondary rounded-full blur-[120px] pointer-events-none" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary/20 rounded-full blur-[120px] pointer-events-none" />
         </>
       )}
 
@@ -649,31 +748,31 @@ export default function MatchPage() {
         {matchState === 'idle' && profile && (
           <div className="glass-card rounded-2xl p-6 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center">
             <div className="flex-1 w-full">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Interests (Max 4)</h3>
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Interests (Max 4)</h3>
               <div className="flex flex-wrap gap-2 mb-4">
                 {profile.interests.map(i => (
-                  <span key={i} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${incognitoMode ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-white/5 text-white border-white/5'}`}>
+                  <span key={i} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border ${incognitoMode ? 'bg-purple-500/20 text-purple-300 border-purple-500/30' : 'bg-secondary text-foreground border-border'}`}>
                     #{i}
                   </span>
                 ))}
                 {profile.interests.length === 0 && (
-                  <span className="text-xs text-gray-600">No active tags. Open Profile Settings below to add interests.</span>
+                  <span className="text-xs text-muted-foreground">No active tags. Open Profile Settings below to add interests.</span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-6 border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6">
+            <div className="flex items-center gap-6 border-t md:border-t-0 md:border-l border-border pt-4 md:pt-0 md:pl-6">
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Matching Mode</span>
-                <div className="flex bg-white/5 p-1 rounded-xl border border-white/5 mt-1">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Matching Mode</span>
+                <div className="flex bg-secondary p-1 rounded-xl border border-border mt-1">
                   <button
                     onClick={() => setMode('text')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${mode === 'text' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${mode === 'text' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <MessageSquare size={13} /> Text
                   </button>
                   <button
                     onClick={() => setMode('video')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${mode === 'video' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${mode === 'video' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                   >
                     <Video size={13} /> Video
                   </button>
@@ -687,40 +786,49 @@ export default function MatchPage() {
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch min-h-[460px]">
           
           {/* LEFT CONTAINER: Video tiles / graphical interface */}
-          <div className={`${chatOpen && isLoungeConnected ? 'lg:col-span-7' : 'lg:col-span-12'} glass-card rounded-2xl p-4 flex flex-col justify-center items-center relative overflow-hidden bg-white/[0.01] transition-all duration-300`}>
+          <div className={`${chatOpen && isLoungeConnected ? 'lg:col-span-7' : 'lg:col-span-12'} glass-card rounded-2xl p-4 flex flex-col justify-center items-center relative overflow-hidden transition-all duration-300`}>
             
             {matchState === 'idle' && (
               <div className="text-center p-8 flex flex-col items-center">
-                <div className={`h-16 w-16 rounded-2xl flex items-center justify-center mb-6 border ${incognitoMode ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : 'bg-white/5 border-white/10 text-white'}`}>
-                  <Sparkles size={28} className="animate-pulse" />
+                <div className={`h-16 w-16 rounded-2xl flex items-center justify-center mb-6 border ${incognitoMode ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : 'bg-secondary border-border text-foreground'}`}>
+                  <Zap size={28} className="animate-pulse text-yellow-400" />
                 </div>
-                <h2 className="text-xl font-black text-white tracking-tight uppercase">Hangout Lounge</h2>
-                <p className="text-xs text-gray-400 max-w-xs mt-1.5 mb-6">
+                <h2 className="text-xl font-black text-foreground tracking-tight uppercase">Hangout Lounge</h2>
+                <p className="text-xs text-muted-foreground max-w-xs mt-1.5 mb-6">
                   Match with people around the world using interests or radar location.
                 </p>
                 <button
                   onClick={handleStartMatch}
-                  className={`px-8 py-3.5 rounded-xl font-extrabold text-xs shadow-xl transition transform hover:scale-105 ${incognitoMode ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-white hover:bg-gray-200 text-black'}`}
+                  className={`px-8 py-3.5 rounded-xl font-extrabold text-xs shadow-xl transition transform hover:scale-105 cursor-pointer ${incognitoMode ? 'bg-purple-600 hover:bg-purple-500 text-white' : 'bg-primary hover:opacity-90 text-primary-foreground'}`}
                 >
                   Match Stranger
                 </button>
+                {lastOpponent && (
+                  <button
+                    onClick={() => setIsReportOpen(true)}
+                    className="mt-3.5 px-6 py-2.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Flag size={12} />
+                    <span>Report Previous Match</span>
+                  </button>
+                )}
               </div>
             )}
 
             {matchState === 'searching' && (
               <div className="text-center p-8 flex flex-col items-center justify-center">
                 <div className="relative h-28 w-28 mb-8 flex items-center justify-center">
-                  <div className={`absolute inset-0 rounded-full border ripple-ring ${incognitoMode ? 'border-purple-500/20' : 'border-white/10'}`} />
-                  <div className={`absolute inset-3 rounded-full border ripple-ring ${incognitoMode ? 'border-purple-500/30' : 'border-white/15'}`} style={{ animationDelay: '1s' }} />
-                  <div className={`absolute inset-6 rounded-full border ripple-ring ${incognitoMode ? 'border-purple-500/40' : 'border-white/20'}`} style={{ animationDelay: '2s' }} />
-                  <div className={`h-14 w-14 rounded-full flex items-center justify-center border ${incognitoMode ? 'bg-purple-950 border-purple-500/30 text-purple-400' : 'bg-white/5 border-white/10 text-white'}`}>
+                  <div className={`absolute inset-0 rounded-full border ripple-ring ${incognitoMode ? 'border-purple-500/20' : 'border-border/60'}`} />
+                  <div className={`absolute inset-3 rounded-full border ripple-ring ${incognitoMode ? 'border-purple-500/30' : 'border-border/40'}`} style={{ animationDelay: '1s' }} />
+                  <div className={`absolute inset-6 rounded-full border ripple-ring ${incognitoMode ? 'border-purple-500/40' : 'border-border/20'}`} style={{ animationDelay: '2s' }} />
+                  <div className={`h-14 w-14 rounded-full flex items-center justify-center border ${incognitoMode ? 'bg-purple-950 border-purple-500/30 text-purple-400' : 'bg-secondary border-border text-foreground'}`}>
                     <Loader2 size={20} className="animate-spin" />
                   </div>
                 </div>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Searching Seeker...</h3>
+                <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">Searching Seeker...</h3>
                 <button
                   onClick={handleCancelSearch}
-                  className="px-6 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl text-xs font-bold transition mt-6"
+                  className="px-6 py-2.5 bg-secondary hover:bg-accent border border-border text-foreground rounded-xl text-xs font-bold transition mt-6 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -731,19 +839,19 @@ export default function MatchPage() {
               <div className="w-full h-full flex flex-col gap-4">
 
                 {/* Peer bar */}
-                <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 p-3 rounded-xl">
+                <div className="flex justify-between items-center bg-secondary border border-border p-3 rounded-xl">
                   <div className="flex items-center gap-3">
                     <img
                       src={opponent?.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=Stranger'}
                       alt="Avatar"
-                      className="h-8 w-8 rounded-full border border-white/10 bg-gray-900"
+                      className="h-8 w-8 rounded-full border border-border bg-muted object-cover"
                     />
                     <div>
-                      <h4 className="text-xs font-bold text-white">
+                      <h4 className="text-xs font-bold text-foreground">
                         {matchState === 'group' ? 'Temp Lounge Group' : (opponent?.isAnonymous ? 'Incognito Stranger' : opponent?.username)}
                       </h4>
                       {matchState === 'connected' && opponent && (
-                        <span className="text-[10px] text-gray-500">Trust Index: {opponent.trustRank}%</span>
+                        <span className="text-[10px] text-muted-foreground">Trust Index: {opponent.trustRank}%</span>
                       )}
                     </div>
                   </div>
@@ -762,7 +870,7 @@ export default function MatchPage() {
                       )}
                       <button
                         onClick={handleFollow}
-                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${hasLiked ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'}`}
+                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${hasLiked ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' : 'bg-secondary text-muted-foreground hover:text-foreground border border-border'}`}
                         title={hasLiked ? "Unlike (Cancel Request)" : "Like (Add Friend)"}
                       >
                         <Heart size={14} className={hasLiked ? "fill-current text-pink-400" : ""} />
@@ -771,15 +879,15 @@ export default function MatchPage() {
                       <button
                         onClick={handleTrustLike}
                         disabled={hasTrustLiked}
-                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${hasTrustLiked ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-white/5 text-gray-400 hover:text-white border border-white/5'}`}
+                        className={`p-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${hasTrustLiked ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-secondary text-muted-foreground hover:text-foreground border border-border'}`}
                         title="Trust Like (Increases Rank)"
                       >
-                        <Sparkles size={14} />
+                        <Zap size={14} className="text-yellow-400 animate-bounce" />
                         <span>Trust +5</span>
                       </button>
                       <button
                         onClick={() => setIsReportOpen(true)}
-                        className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition"
+                        className="p-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg text-xs font-bold transition cursor-pointer"
                         title="Report"
                       >
                         <Flag size={14} />
@@ -794,7 +902,7 @@ export default function MatchPage() {
                     {/* Remote Screen */}
                     <div 
                       onClick={handleFollow}
-                      className="flex-1 bg-black rounded-xl overflow-hidden border border-white/5 relative flex items-center justify-center aspect-video md:aspect-auto cursor-pointer"
+                      className="flex-1 bg-black rounded-xl overflow-hidden border border-border relative flex items-center justify-center aspect-video md:aspect-auto cursor-pointer"
                       title="Tap to Like / Unlike"
                     >
                       <video
@@ -806,70 +914,71 @@ export default function MatchPage() {
                       {/* Placeholder when no remote stream */}
                       {connectionState !== 'connected' && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
-                          <div className="h-16 w-16 rounded-full border border-white/10 bg-gray-900 flex items-center justify-center mb-3">
+                          <div className="h-16 w-16 rounded-full border border-border bg-muted flex items-center justify-center mb-3">
                             <img src={opponent?.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=Stranger'} alt="" className="h-full w-full rounded-full object-cover" />
                           </div>
-                          <span className="text-[10px] text-gray-400 animate-pulse">
+                          <span className="text-[10px] text-muted-foreground animate-pulse">
                             {connectionState === 'connecting' ? 'Connecting video...' : 'Waiting for video...'}
                           </span>
                         </div>
                       )}
-                      <span className="absolute bottom-3 left-3 bg-black/70 px-2.5 py-1 rounded text-[10px] font-bold border border-white/5">
+                      <span className="absolute bottom-3 left-3 bg-black/70 px-2.5 py-1 rounded text-[10px] font-bold border border-border">
                         Stranger
                       </span>
                     </div>
 
                     {/* Local Screen */}
-                    <div className="flex-1 bg-black rounded-xl overflow-hidden border border-white/5 relative flex items-center justify-center aspect-video md:aspect-auto">
+                    <div className="flex-1 bg-black rounded-xl overflow-hidden border border-border relative flex items-center justify-center aspect-video md:aspect-auto">
                       <video
                         ref={localVideoRef}
                         autoPlay
                         playsInline
                         muted
                         className="w-full h-full object-cover"
+                        style={{ transform: 'scaleX(-1)' }}
                       />
                       {isCamOff && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                          <span className="text-[10px] text-gray-400">Camera Off</span>
+                          <span className="text-[10px] text-muted-foreground">Camera Off</span>
                         </div>
                       )}
-                      <span className="absolute bottom-3 left-3 bg-black/70 px-2.5 py-1 rounded text-[10px] font-bold border border-white/5">
+                      <span className="absolute bottom-3 left-3 bg-black/70 px-2.5 py-1 rounded text-[10px] font-bold border border-border">
                         You {isMuted && '(Muted)'}
                       </span>
                     </div>
                   </div>
                 ) : (
                   /* Text Mode Graphical Placeholder */
-                  <div className="flex-1 flex flex-col items-center justify-center border border-white/5 rounded-xl py-12 bg-white/[0.01]">
+                  <div className="flex-1 flex flex-col items-center justify-center border border-border rounded-xl py-12 bg-secondary/35">
                     <div className="flex gap-6 items-center">
                       <img
                         src={profile?.avatarUrl || 'https://api.dicebear.com/7.x/bottts/svg?seed=You'}
                         alt="You"
-                        className="h-16 w-16 rounded-full border border-white/10 bg-gray-950"
+                        className="h-16 w-16 rounded-full border border-border bg-secondary object-cover"
                       />
                       <div className="h-6 w-16 flex justify-around items-center">
-                        <span className="h-2 w-1 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                        <span className="h-4 w-1 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
-                        <span className="h-2 w-1 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.5s' }} />
+                        <span className="h-2 w-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
+                        <span className="h-4 w-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                        <span className="h-2 w-1 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.5s' }} />
                       </div>
                       {matchState === 'connected' ? (
                         <img
                           src={opponent?.avatarUrl}
                           alt="Opponent"
-                          className="h-16 w-16 rounded-full border border-white/10 bg-gray-950"
+                          className="h-16 w-16 rounded-full border border-border bg-secondary object-cover"
                         />
                       ) : (
-                        <div className="h-16 w-16 rounded-full border border-white/5 bg-gray-950 flex items-center justify-center">
-                          <Users size={22} className="text-gray-500 animate-pulse" />
+                        <div className="h-16 w-16 rounded-full border border-border bg-secondary flex items-center justify-center">
+                          <Users size={22} className="text-muted-foreground animate-pulse" />
                         </div>
                       )}
                     </div>
                     {matchState === 'connected' && sharedInterests.length > 0 && (
                       <div className="mt-8 flex flex-col items-center">
-                        <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">Common tags</span>
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider mb-2">Common tags</span>
                         <div className="flex gap-1.5">
                           {sharedInterests.map(i => (
-                            <span key={i} className="text-[10px] bg-white/5 border border-white/10 px-2.5 py-1 rounded-lg font-bold">
+                            <span key={i} className="text-[10px] bg-secondary border border-border px-2.5 py-1 rounded-lg font-bold">
                               #{i}
                             </span>
                           ))}
@@ -884,11 +993,11 @@ export default function MatchPage() {
 
           {/* RIGHT CONTAINER: Chat box */}
           {chatOpen && isLoungeConnected && (
-            <div className="lg:col-span-5 glass-card rounded-2xl p-4 flex flex-col justify-between items-stretch bg-white/[0.01]">
+            <div className="lg:col-span-5 glass-card rounded-2xl p-4 flex flex-col justify-between items-stretch">
               <div className="flex-1 flex flex-col justify-between overflow-hidden">
                 <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4 max-h-[350px]">
                   {chatLog.length === 0 && groupMessages.length === 0 && (
-                    <div className="text-center py-12 text-gray-600 text-[10px]">
+                    <div className="text-center py-12 text-muted-foreground text-[10px]">
                       Encrypted session established. Messages are secure.
                     </div>
                   )}
@@ -897,7 +1006,7 @@ export default function MatchPage() {
                     const isMe = msg.senderId === 'me';
                     return (
                       <div key={index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${isMe ? 'bg-white text-black' : 'bg-white/5 text-gray-200 border border-white/5'}`}>
+                        <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground border border-border'}`}>
                           <p>{msg.text}</p>
                         </div>
                       </div>
@@ -907,10 +1016,10 @@ export default function MatchPage() {
                   {matchState === 'group' && groupMessages.map((msg, index) => {
                     const isSystem = msg.senderId === 'system';
                     const isMe = msg.senderId === 'me';
-                    if (isSystem) return <div key={index} className="text-center text-[9px] text-gray-600 py-1">{msg.text}</div>;
+                    if (isSystem) return <div key={index} className="text-center text-[9px] text-muted-foreground py-1">{msg.text}</div>;
                     return (
                       <div key={index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${isMe ? 'bg-white text-black' : 'bg-white/5 text-gray-200 border border-white/5'}`}>
+                        <div className={`max-w-[80%] rounded-xl px-3 py-2 text-xs ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground border border-border'}`}>
                           <p>{msg.text}</p>
                         </div>
                       </div>
@@ -927,7 +1036,7 @@ export default function MatchPage() {
                     onChange={(e) => setMessageText(e.target.value)}
                     className="flex-1 px-3 py-2.5 text-xs rounded-xl glass-input"
                   />
-                  <button type="submit" className="bg-white text-black p-2.5 rounded-xl transition flex items-center justify-center">
+                  <button type="submit" className="bg-primary text-primary-foreground hover:opacity-90 p-2.5 rounded-xl transition flex items-center justify-center cursor-pointer">
                     <Send size={14} />
                   </button>
                 </form>
@@ -942,16 +1051,16 @@ export default function MatchPage() {
       {isReportOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-md glass-card rounded-2xl p-6 shadow-2xl relative border border-red-500/20">
-            <button onClick={() => setIsReportOpen(false)} className="absolute top-4 right-4 text-gray-400 hover:text-white transition">
+            <button onClick={() => setIsReportOpen(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition cursor-pointer">
               <X size={18} />
             </button>
             <div className="flex items-center gap-2 mb-4 text-red-400">
               <ShieldAlert size={20} />
-              <h3 className="text-lg font-bold text-white">Report Opponent</h3>
+              <h3 className="text-lg font-bold text-foreground">{opponent ? 'Report Opponent' : 'Report Previous Match'}</h3>
             </div>
             <form onSubmit={handleReport} className="space-y-4">
               <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Reason</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Reason</label>
                 <textarea
                   placeholder="Describe the violation..."
                   value={reportReason}
@@ -962,26 +1071,26 @@ export default function MatchPage() {
                 />
               </div>
               <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Screenshot (Optional)</label>
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Screenshot (Optional)</label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={(e) => setReportFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-white/5 file:text-white hover:file:bg-white/10"
+                  className="w-full text-xs text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-secondary file:text-foreground hover:file:bg-accent"
                 />
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setIsReportOpen(false)}
-                  className="px-4 py-2 border border-white/10 hover:bg-white/5 text-gray-400 rounded-xl text-xs font-bold transition"
+                  className="px-4 py-2 border border-border hover:bg-secondary text-muted-foreground rounded-xl text-xs font-bold transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={reporting}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 >
                   {reporting ? <Loader2 size={13} className="animate-spin" /> : 'Submit & Skip'}
                 </button>

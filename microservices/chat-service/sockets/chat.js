@@ -214,6 +214,18 @@ export const handleSocketConnections = (io) => {
           });
         }
 
+        // Save chat history in Redis matching log (valid for 2 hours)
+        const sortedIds = [currentUserId.toString(), opponentId.toString()].sort();
+        const sessionKey = `match_chat:${sortedIds[0]}_${sortedIds[1]}`;
+        const messagePayload = {
+          senderId: currentUserId,
+          senderUsername: sender?.isAnonymous ? 'Stranger' : sender?.username || 'Stranger',
+          text,
+          createdAt: new Date()
+        };
+        await redisClient.rPush(sessionKey, JSON.stringify(messagePayload));
+        await redisClient.expire(sessionKey, 7200);
+
         const opponentSocketId = await redisClient.hGet('online_sockets', opponentId);
         if (opponentSocketId) {
           io.to(opponentSocketId).emit('match_message', { senderId: currentUserId, text });
@@ -470,6 +482,11 @@ const handleSkip = async (userId) => {
   
   if (opponentId) {
     await redisClient.hDel('active_matches', opponentId);
+    
+    // Store previous opponent mapping in Redis for 5 minutes (300 seconds)
+    await redisClient.setEx(`previous_opponent:${userId}`, 300, opponentId);
+    await redisClient.setEx(`previous_opponent:${opponentId}`, 300, userId);
+    
     const opponentSocketId = await redisClient.hGet('online_sockets', opponentId);
     if (opponentSocketId) {
       global.io.to(opponentSocketId).emit('match_skipped');

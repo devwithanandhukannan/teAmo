@@ -206,18 +206,18 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#000000] relative px-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background relative px-4 overflow-hidden transition-colors duration-300">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
       {!isWaitingLink ? (
-        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-white/5 shadow-2xl">
+        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-border shadow-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-              <Radio size={28} className="text-white" />
+            <div className="h-14 w-14 rounded-2xl bg-secondary border border-border flex items-center justify-center mb-4">
+              <Radio size={28} className="text-foreground" />
             </div>
-            <h2 className="text-xl font-black text-white tracking-tight uppercase">Create Account</h2>
-            <p className="text-xs text-gray-500 mt-1">Hangout powered by kneazllle</p>
+            <h2 className="text-xl font-black text-foreground tracking-tight uppercase">Create Account</h2>
+            <p className="text-xs text-muted-foreground mt-1">Hangout powered by kneazllle</p>
           </div>
 
           {error && (
@@ -229,9 +229,9 @@ export default function RegisterPage() {
 
           <form onSubmit={handleRegisterSubmit} className="space-y-5">
             <div>
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Username</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Username</label>
               <div className="relative">
-                <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
                 <input
                   type="text"
                   placeholder="Choose username"
@@ -241,15 +241,15 @@ export default function RegisterPage() {
                   required
                 />
               </div>
-              {usernameStatus === 'checking' && <span className="text-[10px] text-gray-500 block mt-1 pl-1">Checking availability...</span>}
+              {usernameStatus === 'checking' && <span className="text-[10px] text-muted-foreground block mt-1 pl-1">Checking availability...</span>}
               {usernameStatus === 'taken' && <span className="text-[10px] text-red-400 block mt-1 pl-1 font-semibold">Username taken</span>}
               {usernameStatus === 'available' && <span className="text-[10px] text-green-400 block mt-1 pl-1 font-semibold">Username is available</span>}
             </div>
 
             <div>
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Email Address</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Email Address</label>
               <div className="relative">
-                <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="email"
                   placeholder="Enter email address"
@@ -259,15 +259,15 @@ export default function RegisterPage() {
                   required
                 />
               </div>
-              {emailStatus === 'checking' && <span className="text-[10px] text-gray-500 block mt-1 pl-1">Checking database...</span>}
+              {emailStatus === 'checking' && <span className="text-[10px] text-muted-foreground block mt-1 pl-1">Checking database...</span>}
               {emailStatus === 'taken' && <span className="text-[10px] text-red-400 block mt-1 pl-1 font-semibold">Email already registered</span>}
               {emailStatus === 'available' && <span className="text-[10px] text-green-400 block mt-1 pl-1 font-semibold">Email is available</span>}
             </div>
 
             <div>
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Password</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Password</label>
               <div className="relative">
-                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="password"
                   placeholder="Choose password"
@@ -282,22 +282,22 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading || usernameStatus === 'checking' || emailStatus === 'checking'}
-              className="w-full py-3.5 bg-white hover:bg-gray-200 text-black rounded-xl font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 bg-primary hover:opacity-90 text-primary-foreground rounded-xl font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? <Loader2 className="animate-spin" size={16} /> : <>Continue <ArrowRight size={14} /></>}
             </button>
           </form>
 
-          <p className="text-xs text-gray-400 text-center mt-6">
+          <p className="text-xs text-muted-foreground text-center mt-6">
             Already registered?{' '}
-            <Link href="/login" className="text-white font-bold hover:underline transition">
+            <Link href="/login" className="text-primary font-bold hover:underline transition">
               Sign In
             </Link>
           </p>
         </div>
       ) : (
         /* Render Premium Magic Link Waiting View on Register */
-        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-white/5 shadow-2xl flex flex-col items-center text-center">
+        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-border shadow-2xl flex flex-col items-center text-center">
           <div className="h-16 w-16 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-center mb-6 relative">
             <MailOpen size={30} className="text-indigo-400 animate-bounce" />
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -306,14 +306,14 @@ export default function RegisterPage() {
             </span>
           </div>
 
-          <h2 className="text-lg font-black text-white uppercase tracking-wider">Confirm Your Email</h2>
-          <p className="text-xs text-gray-400 mt-2">
+          <h2 className="text-lg font-black text-foreground uppercase tracking-wider">Confirm Your Email</h2>
+          <p className="text-xs text-muted-foreground mt-2">
             A verification link was sent to <strong>{verifiedEmail}</strong>.
           </p>
 
-          <div className="w-full bg-white/2 border border-white/5 rounded-2xl p-4 my-6 text-left">
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Verification Instructions</h4>
-            <ul className="text-[10px] text-gray-500 space-y-1 list-disc list-inside">
+          <div className="w-full bg-secondary border border-border rounded-2xl p-4 my-6 text-left">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Verification Instructions</h4>
+            <ul className="text-[10px] text-muted-foreground space-y-1 list-disc list-inside">
               <li>Open your email client on any device.</li>
               <li>Click the link inside the <strong>"Verify your login"</strong> email.</li>
               <li>Your registration will instantly complete and redirect here.</li>
@@ -321,12 +321,12 @@ export default function RegisterPage() {
           </div>
 
           <div className="flex flex-col items-center gap-1 mb-6">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
-              <RefreshCw className="animate-spin text-indigo-400" size={10} />
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground bg-secondary border border-border px-3 py-1.5 rounded-full">
+              <RefreshCw className="animate-spin text-indigo-500" size={10} />
               <span>Awaiting link activation...</span>
             </div>
-            <div className="text-[9px] text-gray-600 mt-1">
-              Link active for: <span className="font-bold text-gray-400">{formatTimer()}</span>
+            <div className="text-[9px] text-muted-foreground mt-1">
+              Link active for: <span className="font-bold text-foreground">{formatTimer()}</span>
             </div>
           </div>
 

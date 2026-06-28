@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Loader2, CheckCircle2, AlertCircle, Sparkles, Key } from 'lucide-react';
+import { X, Loader2, CheckCircle2, AlertCircle, Zap, Key } from 'lucide-react';
 import { useToast } from './Toast';
 import { getBackendUrl } from '@/config';
 
@@ -305,7 +305,7 @@ export const ProfileDrawer: React.FC = () => {
                   />
                   <div>
                     <h3 className="text-sm font-black text-white uppercase tracking-tight flex items-center gap-1.5">
-                      {profile.username} <Sparkles size={12} className="text-indigo-400" />
+                      {profile.username} <Zap size={12} className="text-indigo-400" />
                     </h3>
                     <span className="text-[10px] text-indigo-400 font-bold block mt-0.5">Trust Rank: {profile.trustRank}%</span>
                   </div>

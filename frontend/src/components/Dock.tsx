@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { 
-  Sparkles, Users, Compass, User, PhoneOff, Mic, MicOff, 
+  Zap, Users, Compass, User, PhoneOff, Mic, MicOff, 
   Video, VideoOff, MessageSquare, UserPlus, ShieldAlert, RefreshCw
 } from 'lucide-react';
 
@@ -72,7 +72,7 @@ export const Dock: React.FC = () => {
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
-      <div className="flex items-center gap-3 bg-neutral-950/80 backdrop-blur-xl border border-white/5 px-4 py-2.5 rounded-3xl shadow-2xl pointer-events-auto transition-all duration-300">
+      <div className="flex items-center gap-3 glass px-4 py-2.5 rounded-3xl shadow-2xl pointer-events-auto transition-all duration-300">
         
         {/* Render ACTIVE VIDEO CALL controls in the Dock */}
         {isCallState ? (
@@ -85,7 +85,7 @@ export const Dock: React.FC = () => {
               <div className="p-3.5 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/20 rounded-2xl transition animate-pulse">
                 <PhoneOff size={18} />
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                 Exit Hangout
               </span>
             </div>
@@ -96,10 +96,10 @@ export const Dock: React.FC = () => {
                 onClick={() => triggerEvent('dock-skip')}
                 className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
               >
-                <div className="p-3.5 bg-white/5 border border-white/5 text-gray-400 hover:text-white rounded-2xl transition">
+                <div className="p-3.5 bg-secondary border border-border text-muted-foreground hover:text-foreground rounded-2xl transition">
                   <RefreshCw size={18} />
                 </div>
-                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                   New Partner
                 </span>
               </div>
@@ -111,10 +111,10 @@ export const Dock: React.FC = () => {
                 onClick={() => triggerEvent('dock-mute-audio')}
                 className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
               >
-                <div className={`p-3.5 rounded-2xl border transition ${audioMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
+                <div className={`p-3.5 rounded-2xl border transition ${audioMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-secondary text-muted-foreground border-border hover:text-foreground'}`}>
                   {audioMuted ? <MicOff size={18} /> : <Mic size={18} />}
                 </div>
-                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                   {audioMuted ? 'Unmute Mic' : 'Mute Mic'}
                 </span>
               </div>
@@ -126,10 +126,10 @@ export const Dock: React.FC = () => {
                 onClick={() => triggerEvent('dock-mute-video')}
                 className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
               >
-                <div className={`p-3.5 rounded-2xl border transition ${videoMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
+                <div className={`p-3.5 rounded-2xl border transition ${videoMuted ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-secondary text-muted-foreground border-border hover:text-foreground'}`}>
                   {videoMuted ? <VideoOff size={18} /> : <Video size={18} />}
                 </div>
-                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                   {videoMuted ? 'Start Camera' : 'Stop Camera'}
                 </span>
               </div>
@@ -140,10 +140,10 @@ export const Dock: React.FC = () => {
               onClick={() => triggerEvent('dock-toggle-chat')}
               className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
             >
-              <div className={`p-3.5 rounded-2xl border transition ${chatOpen ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
+              <div className={`p-3.5 rounded-2xl border transition ${chatOpen ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-muted-foreground border-border hover:text-foreground'}`}>
                 <MessageSquare size={18} />
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                 {chatOpen ? 'Hide Chat' : 'Show Chat'}
               </span>
             </div>
@@ -154,10 +154,10 @@ export const Dock: React.FC = () => {
                 onClick={() => triggerEvent('dock-friend')}
                 className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
               >
-                <div className="p-3.5 bg-white/5 border border-white/5 text-gray-400 hover:text-white rounded-2xl transition">
+                <div className="p-3.5 bg-secondary border border-border text-muted-foreground hover:text-foreground rounded-2xl transition">
                   <UserPlus size={18} />
                 </div>
-                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+                <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                   Add Friend
                 </span>
               </div>
@@ -168,30 +168,30 @@ export const Dock: React.FC = () => {
           <>
             {/* Match Lobby Link */}
             <Link href="/match" className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110">
-              <div className={`p-3.5 rounded-2xl border transition ${pathname === '/match' ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
-                <Sparkles size={18} />
+              <div className={`p-3.5 rounded-2xl border transition ${pathname === '/match' ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-muted-foreground border-border hover:text-foreground'}`}>
+                <Zap size={18} />
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                 Lounge Room
               </span>
             </Link>
 
             {/* Friends list link */}
             <Link href="/friends" className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110">
-              <div className={`p-3.5 rounded-2xl border transition ${pathname === '/friends' ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
+              <div className={`p-3.5 rounded-2xl border transition ${pathname === '/friends' ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-muted-foreground border-border hover:text-foreground'}`}>
                 <Users size={18} />
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                 Friends Feed
               </span>
             </Link>
 
             {/* Nearby Scanner link */}
             <Link href="/nearby" className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110">
-              <div className={`p-3.5 rounded-2xl border transition ${pathname === '/nearby' ? 'bg-white text-black border-white' : 'bg-white/5 text-gray-400 border-white/5 hover:text-white'}`}>
+              <div className={`p-3.5 rounded-2xl border transition ${pathname === '/nearby' ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-muted-foreground border-border hover:text-foreground'}`}>
                 <Compass size={18} />
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                 Radar Scan
               </span>
             </Link>
@@ -201,10 +201,10 @@ export const Dock: React.FC = () => {
               onClick={() => triggerEvent('dock-open-profile')}
               className="group relative flex flex-col items-center justify-center transition-all duration-200 origin-bottom cursor-pointer hover:scale-110"
             >
-              <div className="p-3.5 rounded-2xl border bg-white/5 text-gray-400 border-white/5 hover:text-white transition">
+              <div className="p-3.5 rounded-2xl border bg-secondary text-muted-foreground border-border hover:text-foreground transition">
                 <User size={18} />
               </div>
-              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-neutral-950/95 border border-white/10 px-2.5 py-1 rounded-lg text-[10px] font-bold text-white whitespace-nowrap pointer-events-none transition-all duration-200">
+              <span className="absolute -top-12 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 bg-secondary border border-border px-2.5 py-1 rounded-lg text-[10px] font-bold text-foreground whitespace-nowrap pointer-events-none transition-all duration-200">
                 Profile Settings
               </span>
             </div>
@@ -215,3 +215,4 @@ export const Dock: React.FC = () => {
     </div>
   );
 };
+

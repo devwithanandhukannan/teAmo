@@ -19,7 +19,7 @@ const reportSchema = new mongoose.Schema({
     required: true
   },
   screenshotUrl: {
-    type: String // Local storage path or base64 data URI
+    type: String
   },
   chatLog: [{
     senderId: String,

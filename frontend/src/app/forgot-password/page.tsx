@@ -52,18 +52,18 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#030712] relative px-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background relative px-4 overflow-hidden transition-colors duration-300">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-500/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-      <div className="w-full max-w-md glass-card rounded-3xl p-8 relative glow-primary">
-        <Link href="/login" className="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-white font-bold mb-6 transition">
+      <div className="w-full max-w-md glass-card rounded-3xl p-8 relative glow-primary border border-border shadow-2xl">
+        <Link href="/login" className="inline-flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground font-bold mb-6 transition cursor-pointer">
           <ArrowLeft size={14} /> Back to Sign In
         </Link>
 
         <div className="mb-6">
-          <h2 className="text-2xl font-extrabold text-white tracking-tight">Reset Password</h2>
-          <p className="text-sm text-gray-400 mt-1">We will send you instructions to change your password</p>
+          <h2 className="text-2xl font-extrabold text-foreground tracking-tight">Reset Password</h2>
+          <p className="text-sm text-muted-foreground mt-1">We will send you instructions to change your password</p>
         </div>
 
         {error && (
@@ -82,7 +82,7 @@ export default function ForgotPasswordPage() {
           <div className="mb-6 px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs text-center flex flex-col gap-2">
             <span className="font-bold">⚠️ SMTP Server Offline Fallback:</span>
             <span>Use this temporary token reset link to complete test password changes:</span>
-            <Link href={mockResetLink} className="underline text-indigo-400 hover:text-indigo-300 font-semibold break-all">
+            <Link href={mockResetLink} className="underline text-indigo-500 hover:text-indigo-400 font-semibold break-all">
               {window.location.origin}{mockResetLink}
             </Link>
           </div>
@@ -90,9 +90,9 @@ export default function ForgotPasswordPage() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="relative">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Email Address</label>
+            <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Email Address</label>
             <div className="relative">
-              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="email"
                 placeholder="Enter email address"
@@ -106,7 +106,7 @@ export default function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+            className="w-full py-4 bg-primary hover:opacity-90 text-primary-foreground rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <Loader2 className="animate-spin" size={18} />

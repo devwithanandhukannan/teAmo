@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../context/SocketContext';
 import { useToast } from '../../components/Toast';
+import { useModal } from '../../context/ModalContext';
 import { getBackendUrl, safeGetUserMedia } from '@/config';
 import { 
   Phone, Video, Send, Plus, Trash2, X, Loader2, 
@@ -44,6 +45,7 @@ export default function FriendsPage() {
     sendDirectMessage, directMessages, setDirectMessages
   } = useSocket();
   const { showToast } = useToast();
+  const { showConfirm } = useModal();
 
   const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
   const [typedMessage, setTypedMessage] = useState('');
@@ -164,7 +166,13 @@ export default function FriendsPage() {
   }, []); // Empty — safe because we use refs
 
   const handleUnfriend = async (friendId: string) => {
-    if (!window.confirm("Are you sure you want to unfriend/unfollow this user?")) return;
+    const confirmed = await showConfirm(
+      "Unfriend User",
+      "Are you sure you want to unfriend/unfollow this user?",
+      "Unfriend",
+      "Cancel"
+    );
+    if (!confirmed) return;
 
     try {
       const token = localStorage.getItem('token');
@@ -554,8 +562,8 @@ export default function FriendsPage() {
   const currentChatMsgs = selectedFriend ? (directMessages[selectedFriend._id] || []) : [];
 
   return (
-    <div className="min-h-screen pt-32 pb-36 px-4 flex flex-col items-center bg-[#000000] relative overflow-hidden">
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-white/5 rounded-full blur-[120px] pointer-events-none"></div>
+    <div className="min-h-screen pt-40 pb-36 px-4 flex flex-col items-center bg-background relative overflow-hidden transition-colors duration-300">
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-secondary rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-1">
         
@@ -563,12 +571,12 @@ export default function FriendsPage() {
         <div className="lg:col-span-4 flex flex-col gap-6">
           
           {/* Stories */}
-          <div className="glass-card rounded-2xl p-4 flex flex-col bg-white/[0.01]">
+          <div className="glass-card rounded-2xl p-4 flex flex-col">
             <div className="flex justify-between items-center mb-3">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Stories (24h Snaps)</span>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Stories (24h Snaps)</span>
               <button 
                 onClick={() => setSnapUploadOpen(true)}
-                className="p-1 bg-white/5 text-gray-300 hover:text-white rounded-lg border border-white/5 transition"
+                className="p-1 bg-secondary text-muted-foreground hover:text-foreground rounded-lg border border-border transition cursor-pointer"
               >
                 <Plus size={14} />
               </button>
@@ -579,29 +587,29 @@ export default function FriendsPage() {
                 <button
                   key={snap._id}
                   onClick={() => setActiveStory(snap)}
-                  className="flex flex-col items-center gap-1.5 focus:outline-none shrink-0"
+                  className="flex flex-col items-center gap-1.5 focus:outline-none shrink-0 cursor-pointer"
                 >
-                  <div className="h-12 w-12 rounded-full p-[2px] bg-white border border-white/10">
+                  <div className="h-12 w-12 rounded-full p-[2px] bg-secondary border border-border">
                     <img
                       src={snap.sender.avatarUrl}
                       alt="Avatar"
-                      className="h-full w-full rounded-full border border-black bg-gray-900 object-cover"
+                      className="h-full w-full rounded-full border border-background bg-secondary object-cover"
                     />
                   </div>
-                  <span className="text-[9px] text-gray-400 max-w-[50px] truncate font-bold">
+                  <span className="text-[9px] text-muted-foreground max-w-[50px] truncate font-bold">
                     {snap.sender.username}
                   </span>
                 </button>
               ))}
               {snaps.length === 0 && !loadingSnaps && (
-                <span className="text-[10px] text-gray-600 py-3">No active stories shared.</span>
+                <span className="text-[10px] text-muted-foreground py-3">No active stories shared.</span>
               )}
             </div>
           </div>
 
           {/* Friends List */}
-          <div className="glass-card rounded-2xl p-4 flex-1 flex flex-col bg-white/[0.01]">
-            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Friends List</h3>
+          <div className="glass-card rounded-2xl p-4 flex-1 flex flex-col">
+            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Friends List</h3>
             <div className="space-y-2 overflow-y-auto flex-1 max-h-[300px]">
               {friends.map((friend) => (
                 <div
@@ -609,19 +617,19 @@ export default function FriendsPage() {
                   onClick={() => setSelectedFriend(friend)}
                   className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${
                     selectedFriend?._id === friend._id
-                      ? 'bg-white/10 border-white/10'
-                      : 'bg-white/[0.02] border-white/5 hover:bg-white/5'
+                      ? 'bg-primary/10 border-primary/20 text-foreground'
+                      : 'bg-secondary/40 border-border hover:bg-secondary'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <img
                       src={friend.avatarUrl}
                       alt={friend.username}
-                      className="h-9 w-9 rounded-full border border-white/5 bg-gray-900"
+                      className="h-9 w-9 rounded-full border border-border bg-secondary object-cover"
                     />
                     <div>
-                      <h4 className="text-xs font-bold text-white">{friend.username}</h4>
-                      <span className="text-[9px] text-gray-500 block">Trust index: {friend.trustRank}%</span>
+                      <h4 className="text-xs font-bold text-foreground">{friend.username}</h4>
+                      <span className="text-[9px] text-muted-foreground block">Trust index: {friend.trustRank}%</span>
                     </div>
                   </div>
 
@@ -643,7 +651,7 @@ export default function FriendsPage() {
                           e.stopPropagation();
                           startCall(friend);
                         }}
-                        className="p-1.5 bg-white/5 hover:bg-white hover:text-black rounded-lg border border-white/5 transition"
+                        className="p-1.5 bg-secondary hover:bg-primary hover:text-primary-foreground rounded-lg border border-border transition cursor-pointer"
                         title="Voice Call"
                       >
                         <Phone size={12} />
@@ -653,7 +661,7 @@ export default function FriendsPage() {
                 </div>
               ))}
               {friends.length === 0 && (
-                <div className="text-center py-12 text-gray-600 text-xs">No permanent friends yet.</div>
+                <div className="text-center py-12 text-muted-foreground text-xs">No permanent friends yet.</div>
               )}
             </div>
           </div>
@@ -662,28 +670,28 @@ export default function FriendsPage() {
         {/* RIGHT PANEL: Messaging / System Notifications */}
         <div className="lg:col-span-8 flex flex-col gap-6 items-stretch">
           {selectedFriend ? (
-            <div className="glass-card rounded-2xl p-4 flex flex-col justify-between flex-1 min-h-[450px] bg-white/[0.01]">
-              <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-4">
+            <div className="glass-card rounded-2xl p-4 flex flex-col justify-between flex-1 min-h-[450px]">
+              <div className="flex justify-between items-center border-b border-border pb-3 mb-4">
                 <div className="flex items-center gap-3">
                   <img
                     src={selectedFriend.avatarUrl}
                     alt={selectedFriend.username}
-                    className="h-8 w-8 rounded-full border border-white/5 bg-gray-900"
+                    className="h-8 w-8 rounded-full border border-border bg-secondary object-cover"
                   />
                   <div>
-                    <h3 className="text-xs font-bold text-white">{selectedFriend.username}</h3>
-                    <span className="text-[9px] text-gray-500">{selectedFriend.isOnline ? 'Active Now' : 'Offline'}</span>
+                    <h3 className="text-xs font-bold text-foreground">{selectedFriend.username}</h3>
+                    <span className="text-[9px] text-muted-foreground">{selectedFriend.isOnline ? 'Active Now' : 'Offline'}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleUnfriend(selectedFriend._id)}
-                    className="p-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-lg text-xs transition"
+                    className="p-1.5 bg-red-500/10 hover:bg-red-500/25 border border-red-500/20 text-red-400 rounded-lg text-xs transition cursor-pointer"
                     title="Unfriend / Unfollow"
                   >
                     <Trash2 size={12} />
                   </button>
-                  <button onClick={() => setSelectedFriend(null)} className="text-gray-400 hover:text-white transition p-1 hover:bg-white/5 rounded-lg">
+                  <button onClick={() => setSelectedFriend(null)} className="text-muted-foreground hover:text-foreground transition p-1 hover:bg-secondary rounded-lg cursor-pointer">
                     <X size={16} />
                   </button>
                 </div>
@@ -692,7 +700,7 @@ export default function FriendsPage() {
               {/* Chat messages */}
               <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4 max-h-[300px]">
                 {currentChatMsgs.length === 0 && (
-                  <div className="text-center py-12 text-gray-600 text-[10px]">
+                  <div className="text-center py-12 text-muted-foreground text-[10px]">
                     Encrypted history. Say hi to your friend!
                   </div>
                 )}
@@ -700,7 +708,7 @@ export default function FriendsPage() {
                   const isMe = msg.senderId === 'me' || msg.senderId === socket?.id;
                   return (
                     <div key={index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[70%] rounded-xl px-3.5 py-2 text-xs ${isMe ? 'bg-white text-black' : 'bg-white/5 text-gray-200 border border-white/5'}`}>
+                      <div className={`max-w-[70%] rounded-xl px-3.5 py-2 text-xs ${isMe ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground border border-border'}`}>
                         <p>{msg.text}</p>
                       </div>
                     </div>
@@ -717,21 +725,21 @@ export default function FriendsPage() {
                   onChange={(e) => setTypedMessage(e.target.value)}
                   className="flex-1 px-4 py-3 text-xs rounded-xl glass-input"
                 />
-                <button type="submit" disabled={!typedMessage.trim()} className="bg-white text-black px-4 rounded-xl font-bold text-xs transition">
+                <button type="submit" disabled={!typedMessage.trim()} className="bg-primary text-primary-foreground hover:opacity-90 px-4 rounded-xl font-bold text-xs transition cursor-pointer">
                   Send
                 </button>
               </form>
             </div>
           ) : (
-            <div className="glass-card rounded-2xl p-6 flex flex-col justify-between flex-1 min-h-[450px] bg-white/[0.01]">
+            <div className="glass-card rounded-2xl p-6 flex flex-col justify-between flex-1 min-h-[450px]">
               <div>
-                <div className="flex justify-between items-center border-b border-white/5 pb-3 mb-6">
-                  <div className="flex items-center gap-2 text-white">
+                <div className="flex justify-between items-center border-b border-border pb-3 mb-6">
+                  <div className="flex items-center gap-2 text-foreground">
                     <Bell size={16} />
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-white">System Logs</h3>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">System Logs</h3>
                   </div>
                   {notifications.length > 0 && (
-                    <button onClick={clearAllNotifications} className="text-[10px] text-gray-500 hover:text-red-400 font-bold transition">
+                    <button onClick={clearAllNotifications} className="text-[10px] text-muted-foreground hover:text-red-500 font-bold transition cursor-pointer">
                       Clear Logs
                     </button>
                   )}
@@ -739,13 +747,13 @@ export default function FriendsPage() {
 
                 <div className="space-y-2 overflow-y-auto max-h-[300px]">
                   {notifications.map((notif) => (
-                    <div key={notif._id} className="flex items-start justify-between bg-white/[0.02] p-3.5 border border-white/5 rounded-xl">
-                      <p className="text-xs text-gray-400">{notif.message}</p>
-                      <span className="text-[9px] text-gray-600 block pl-2 shrink-0">{new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <div key={notif._id} className="flex items-start justify-between bg-secondary/30 p-3.5 border border-border rounded-xl">
+                      <p className="text-xs text-muted-foreground">{notif.message}</p>
+                      <span className="text-[9px] text-muted-foreground block pl-2 shrink-0">{new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                   ))}
                   {notifications.length === 0 && (
-                    <div className="text-center py-20 text-gray-600 text-xs flex flex-col items-center gap-2">
+                    <div className="text-center py-20 text-muted-foreground text-xs flex flex-col items-center gap-2">
                       <BellOff size={28} />
                       <span>Inbox is completely clear.</span>
                     </div>

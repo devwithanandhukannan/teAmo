@@ -71,10 +71,10 @@ function ResetPasswordForm() {
   };
 
   return (
-    <div className="w-full max-w-md glass-card rounded-3xl p-8 relative glow-primary">
+    <div className="w-full max-w-md glass-card rounded-3xl p-8 relative glow-primary border border-border shadow-2xl">
       <div className="mb-6">
-        <h2 className="text-2xl font-extrabold text-white tracking-tight">New Password</h2>
-        <p className="text-sm text-gray-400 mt-1">Please enter your new password below</p>
+        <h2 className="text-2xl font-extrabold text-foreground tracking-tight">New Password</h2>
+        <p className="text-sm text-muted-foreground mt-1">Please enter your new password below</p>
       </div>
 
       {error && (
@@ -91,9 +91,9 @@ function ResetPasswordForm() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="relative">
-          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">New Password</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">New Password</label>
           <div className="relative">
-            <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="password"
               placeholder="Enter new password"
@@ -106,9 +106,9 @@ function ResetPasswordForm() {
         </div>
 
         <div className="relative">
-          <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Confirm New Password</label>
+          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Confirm New Password</label>
           <div className="relative">
-            <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="password"
               placeholder="Confirm new password"
@@ -123,7 +123,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           disabled={loading || !token || !email}
-          className="w-full py-4 bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg hover:shadow-indigo-500/20 transition flex items-center justify-center gap-2"
+          className="w-full py-4 bg-primary hover:opacity-90 text-primary-foreground rounded-xl font-bold text-sm shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
         >
           {loading ? (
             <Loader2 className="animate-spin" size={18} />
@@ -140,10 +140,10 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#030712] relative px-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background relative px-4 overflow-hidden transition-colors duration-300">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-500/10 rounded-full blur-[120px] pointer-events-none"></div>
-      <Suspense fallback={<div className="text-gray-400 text-sm">Loading reset form...</div>}>
+      <Suspense fallback={<div className="text-muted-foreground text-sm">Loading reset form...</div>}>
         <ResetPasswordForm />
       </Suspense>
     </div>

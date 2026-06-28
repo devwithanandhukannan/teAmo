@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../context/SocketContext';
 import { getBackendUrl, safeGetUserMedia } from '@/config';
+import { useModal } from '../../context/ModalContext';
 import { 
   ShieldAlert, Settings, BarChart2, ShieldAlert as ReportsIcon, Users as UsersIcon, 
   Key, Server, Sliders, Ban, CheckCircle, AlertTriangle, PlayCircle, Loader2,
@@ -65,10 +66,12 @@ const formatStayTime = (seconds?: number) => {
 
 export default function AdminPage() {
   const router = useRouter();
+  const { showAlert, showConfirm } = useModal();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'analytics' | 'smtp' | 'reports' | 'users' | 'chat'>('analytics');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeReportDetails, setActiveReportDetails] = useState<any | null>(null);
 
   // Connection telemetry
   const [serverHealth, setServerHealth] = useState<'online' | 'checking' | 'error'>('checking');
@@ -215,6 +218,10 @@ export default function AdminPage() {
   useEffect(() => {
     if (!socket) return;
 
+    socket.on('admin_new_report_alert', () => {
+      loadReports();
+    });
+
     socket.on('call_incoming', ({ fromUserId, caller, offer }) => {
       setCallPartner(caller);
       setIncomingCallOffer(offer);
@@ -229,9 +236,9 @@ export default function AdminPage() {
       }
     });
 
-    socket.on('call_rejected', () => {
+    socket.on('call_rejected', async () => {
       closeCall();
-      alert('Call was declined by user.');
+      await showAlert('Call Declined', 'Call was declined by user.');
     });
 
     socket.on('call_ended', () => {
@@ -275,9 +282,9 @@ export default function AdminPage() {
           } catch (err: any) {
             console.error('Video stream error:', err);
             if (err.message === 'SECURE_CONTEXT_REQUIRED') {
-              alert('🔒 Camera/mic access requires HTTPS or localhost connection.');
+              await showAlert('Secure Context Required', '🔒 Camera/mic access requires HTTPS or localhost connection.');
             } else {
-              alert('Could not start video stream. Operating in text mode.');
+              await showAlert('Stream Error', 'Could not start video stream. Operating in text mode.');
             }
           }
         } else {
@@ -340,9 +347,9 @@ export default function AdminPage() {
           } catch (err: any) {
             console.error('Signal video stream error:', err);
             if (err.message === 'SECURE_CONTEXT_REQUIRED') {
-              alert('🔒 Camera/mic access requires HTTPS or localhost connection.');
+              await showAlert('Secure Context Required', '🔒 Camera/mic access requires HTTPS or localhost connection.');
             } else {
-              alert('Could not start video stream. Operating in text mode.');
+              await showAlert('Stream Error', 'Could not start video stream. Operating in text mode.');
             }
           }
         } else if (signalData.answer) {
@@ -365,6 +372,7 @@ export default function AdminPage() {
       socket.off('match_message');
       socket.off('match_skipped');
       socket.off('signal');
+      socket.off('admin_new_report_alert');
     };
   }, [socket]);
 
@@ -381,13 +389,13 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!data.success) {
-        alert(data.message || 'Failed to establish casual match.');
+        await showAlert('Match Error', data.message || 'Failed to establish casual match.');
       } else {
         setIsMatched(true);
       }
     } catch (err) {
       console.error(err);
-      alert('Network error while establishing casual match.');
+      await showAlert('Match Error', 'Network error while establishing casual match.');
     }
   };
 
@@ -433,9 +441,9 @@ export default function AdminPage() {
     } catch (error: any) {
       console.error(error);
       if (error.message === 'SECURE_CONTEXT_REQUIRED') {
-        alert('🔒 Camera/mic access requires HTTPS or localhost connection.');
+        await showAlert('Secure Context Required', '🔒 Camera/mic access requires HTTPS or localhost connection.');
       } else {
-        alert('Call failed. Check camera/mic permissions.');
+        await showAlert('Call Failed', 'Call failed. Check camera/mic permissions.');
       }
       rejectIncomingCall();
     }
@@ -649,12 +657,12 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('SMTP configurations saved successfully.');
+        await showAlert('Settings Saved', 'SMTP configurations saved successfully.');
         setSmtpPass('');
         // Reload settings to update password saved confirmation status
         loadSmtpSettings();
       } else {
-        alert(data.message || 'Failed to save settings.');
+        await showAlert('Settings Error', data.message || 'Failed to save settings.');
       }
     } catch (err) {
       console.error(err);
@@ -676,7 +684,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Global Live capacity threshold updated.');
+        await showAlert('Threshold Updated', 'Global Live capacity threshold updated.');
         loadAnalytics();
       }
     } catch (err) {
@@ -716,7 +724,8 @@ export default function AdminPage() {
 
   const handleUnbanUser = async (id: string) => {
     const token = localStorage.getItem('token');
-    if (!confirm('Are you sure you want to unban this user?')) return;
+    const confirmed = await showConfirm('Unban User', 'Are you sure you want to unban this user?', 'Unban', 'Cancel');
+    if (!confirmed) return;
     try {
       const res = await fetch(`${backendUrl}/api/admin/unban/${id}`, {
         method: 'POST',
@@ -735,7 +744,8 @@ export default function AdminPage() {
 
   const handleBanGroup = async (groupId: string) => {
     const token = localStorage.getItem('token');
-    if (!confirm('Banning this group will ban ALL members of the group. Proceed?')) return;
+    const confirmed = await showConfirm('Ban Group', 'Banning this group will ban ALL members of the group. Proceed?', 'Ban Group', 'Cancel');
+    if (!confirmed) return;
     try {
       const res = await fetch(`${backendUrl}/api/admin/ban-group/${groupId}`, {
         method: 'POST',
@@ -743,7 +753,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (data.success) {
-        alert('Group and all member accounts have been banned.');
+        await showAlert('Group Banned', 'Group and all member accounts have been banned.');
         loadUsers();
         loadReports();
         loadAnalytics();
@@ -1401,6 +1411,12 @@ export default function AdminPage() {
                           {report.reportedUser && (
                             <div className="flex gap-1.5 justify-end">
                               <button
+                                onClick={() => setActiveReportDetails(report)}
+                                className="px-3 py-1.5 bg-secondary hover:bg-accent border border-border text-foreground rounded-xl font-black text-[9px] tracking-wider uppercase transition flex items-center gap-1 cursor-pointer"
+                              >
+                                <Sliders size={10} /> Details
+                              </button>
+                              <button
                                 onClick={() => {
                                   const userRecord: UserRecord = {
                                     _id: report.reportedUser!._id,
@@ -1414,7 +1430,7 @@ export default function AdminPage() {
                                   setSelectedTargetUser(userRecord);
                                   setActiveTab('chat');
                                 }}
-                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black text-[9px] tracking-wider uppercase transition flex items-center gap-1"
+                                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black text-[9px] tracking-wider uppercase tracking-wider transition flex items-center gap-1 cursor-pointer"
                               >
                                 <MessageSquare size={10} /> Chat & Call
                               </button>
@@ -1768,6 +1784,113 @@ export default function AdminPage() {
               >
                 Confirm Ban
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {activeReportDetails && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl glass-card rounded-2xl p-6 shadow-2xl relative border border-white/10 max-h-[85vh] overflow-y-auto">
+            <button 
+              onClick={() => setActiveReportDetails(null)} 
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+            <div className="flex items-center gap-2 mb-6 text-red-400">
+              <ShieldAlert size={22} />
+              <h3 className="text-base font-black text-foreground uppercase tracking-wider">Incident Report Details</h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 text-xs">
+              <div className="bg-secondary/40 p-4 rounded-xl border border-border">
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Reporter</span>
+                <p className="font-bold text-foreground">{activeReportDetails.reporter?.username || 'System'}</p>
+                <p className="text-[10px] text-muted-foreground">{activeReportDetails.reporter?.email}</p>
+                <p className="text-[10px] text-muted-foreground font-semibold mt-2">IP Address: {activeReportDetails.reporterIp || activeReportDetails.reporter?.lastIp || 'N/A'}</p>
+              </div>
+              <div className="bg-secondary/40 p-4 rounded-xl border border-border">
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Reported User</span>
+                <p className="font-bold text-foreground">{activeReportDetails.reportedUser?.username || 'Stranger'}</p>
+                <p className="text-[10px] text-muted-foreground">{activeReportDetails.reportedUser?.email}</p>
+                <p className="text-[10px] text-muted-foreground font-semibold mt-2">IP Address: {activeReportDetails.reportedUserIp || activeReportDetails.reportedUser?.lastIp || 'N/A'}</p>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Violation Reason</span>
+              <div className="bg-secondary/20 p-4 rounded-xl border border-border text-xs text-foreground font-medium">
+                {activeReportDetails.reason}
+              </div>
+            </div>
+
+            {activeReportDetails.screenshotUrl && (
+              <div className="mb-6">
+                <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Screenshot Evidence</span>
+                <div className="border border-border rounded-xl overflow-hidden max-h-[250px] flex items-center justify-center bg-black/40">
+                  <img
+                    src={`${backendUrl}${activeReportDetails.screenshotUrl}`}
+                    alt="Screenshot evidence"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="mb-6">
+              <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest block mb-2">Chat History Logs (Redis Session Cache)</span>
+              <div className="bg-black/40 border border-border rounded-xl p-4 max-h-[250px] overflow-y-auto space-y-3">
+                {activeReportDetails.chatLog && activeReportDetails.chatLog.length > 0 ? (
+                  activeReportDetails.chatLog.map((msg: any, idx: number) => {
+                    const isReporter = msg.senderId === activeReportDetails.reporter?._id;
+                    return (
+                      <div key={idx} className="flex flex-col text-xs">
+                        <span className={`text-[8.5px] font-bold ${isReporter ? 'text-blue-400' : 'text-amber-500'}`}>
+                          {msg.senderUsername || (isReporter ? activeReportDetails.reporter?.username : activeReportDetails.reportedUser?.username || 'Stranger')}
+                        </span>
+                        <span className="text-gray-300 bg-secondary/30 px-3 py-1.5 rounded-lg inline-block max-w-[90%] mt-0.5">
+                          {msg.text}
+                        </span>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center py-6">No chat log recorded for this session.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-border pt-4 mt-6">
+              <button
+                type="button"
+                onClick={() => setActiveReportDetails(null)}
+                className="px-4 py-2 border border-border hover:bg-secondary text-muted-foreground rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Close
+              </button>
+              {activeReportDetails.reportedUser && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const isBanned = activeReportDetails.reportedUser.isBanned;
+                    const uid = activeReportDetails.reportedUser._id;
+                    const uname = activeReportDetails.reportedUser.username;
+                    setActiveReportDetails(null);
+                    if (isBanned) {
+                      handleUnbanUser(uid);
+                    } else {
+                      openBanModal(uid, uname);
+                    }
+                  }}
+                  className={`px-5 py-2 rounded-xl text-xs font-black transition cursor-pointer shadow-lg ${
+                    activeReportDetails.reportedUser.isBanned
+                      ? 'bg-green-500 text-black hover:bg-green-400'
+                      : 'bg-red-600 hover:bg-red-500 text-white'
+                  }`}
+                >
+                  {activeReportDetails.reportedUser.isBanned ? 'Unban User' : 'Ban User'}
+                </button>
+              )}
             </div>
           </div>
         </div>

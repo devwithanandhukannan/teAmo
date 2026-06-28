@@ -123,6 +123,8 @@ export const login = async (req, res) => {
     // BYPASS email validation for the "admin" account to ensure admin utility works easily
     if (user.username === 'admin') {
       console.log('[Auth Service] Admin login bypass email verification.');
+      user.lastIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+      await user.save();
       return res.json({
         success: true,
         token: generateToken(user._id),
@@ -203,11 +205,12 @@ export const verifyLoginLink = async (req, res) => {
     }
 
     // If unverified registration, set verified
+    user.lastIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
     if (!user.isEmailVerified) {
       user.isEmailVerified = true;
-      await user.save();
-      console.log(`[Auth Service] User ${user.email} is now email verified.`);
     }
+    await user.save();
+    console.log(`[Auth Service] User ${user.email} verified from IP: ${user.lastIp}`);
 
     const jwtToken = generateToken(user._id);
     const userInfo = {

@@ -162,19 +162,19 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#000000] relative px-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background relative px-4 overflow-hidden transition-colors duration-300">
       {/* Dynamic Background Gradients */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/5 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-500/5 rounded-full blur-[120px] pointer-events-none"></div>
 
       {!isWaitingLink ? (
-        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-white/5 shadow-2xl">
+        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-border shadow-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="h-14 w-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-4">
-              <Radio size={28} className="text-white" />
+            <div className="h-14 w-14 rounded-2xl bg-secondary border border-border flex items-center justify-center mb-4">
+              <Radio size={28} className="text-foreground" />
             </div>
-            <h2 className="text-xl font-black text-white tracking-tight uppercase">Sign In</h2>
-            <p className="text-xs text-gray-500 mt-1">Hangout powered by kneazllle</p>
+            <h2 className="text-xl font-black text-foreground tracking-tight uppercase">Sign In</h2>
+            <p className="text-xs text-muted-foreground mt-1">Hangout powered by kneazllle</p>
           </div>
 
           {error && (
@@ -186,9 +186,9 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-2">Username or Email</label>
+              <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block mb-2">Username or Email</label>
               <div className="relative">
-                <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+                <Mail size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   placeholder="Enter username or email"
@@ -202,13 +202,13 @@ export default function LoginPage() {
 
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Password</label>
-                <Link href="/forgot-password" className="text-xs text-gray-500 hover:text-white font-semibold transition">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">Password</label>
+                <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-foreground font-semibold transition">
                   Forgot?
                 </Link>
               </div>
               <div className="relative">
-                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Lock size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="password"
                   placeholder="Enter password"
@@ -223,22 +223,22 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-white hover:bg-gray-200 text-black rounded-xl font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 bg-primary hover:opacity-90 text-primary-foreground rounded-xl font-extrabold text-xs shadow-lg transition flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? <Loader2 className="animate-spin" size={16} /> : <>Sign In <ArrowRight size={14} /></>}
             </button>
           </form>
 
-          <p className="text-xs text-gray-400 text-center mt-6">
+          <p className="text-xs text-muted-foreground text-center mt-6">
             New here?{' '}
-            <Link href="/register" className="text-white font-bold hover:underline transition">
+            <Link href="/register" className="text-primary font-bold hover:underline transition">
               Create Account
             </Link>
           </p>
         </div>
       ) : (
         /* Render Premium Magic Link Waiting View */
-        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-white/5 shadow-2xl flex flex-col items-center text-center">
+        <div className="w-full max-w-md glass-card rounded-3xl p-8 relative border border-border shadow-2xl flex flex-col items-center text-center">
           <div className="h-16 w-16 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-center mb-6 relative">
             <MailOpen size={30} className="text-indigo-400 animate-bounce" />
             <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -247,15 +247,15 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <h2 className="text-lg font-black text-white uppercase tracking-wider">Check Your Email</h2>
-          <p className="text-xs text-gray-400 mt-2">
+          <h2 className="text-lg font-black text-foreground uppercase tracking-wider">Check Your Email</h2>
+          <p className="text-xs text-muted-foreground mt-2">
             We sent a secure login link to <strong>{verifiedEmail}</strong>.
           </p>
 
           {/* Interactive instruction card */}
-          <div className="w-full bg-white/2 border border-white/5 rounded-2xl p-4 my-6 text-left">
-            <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Instructions</h4>
-            <ul className="text-[10px] text-gray-500 space-y-1 list-disc list-inside">
+          <div className="w-full bg-secondary border border-border rounded-2xl p-4 my-6 text-left">
+            <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5">Instructions</h4>
+            <ul className="text-[10px] text-muted-foreground space-y-1 list-disc list-inside">
               <li>Open the verification email on any device (phone, laptop).</li>
               <li>Click the <strong>"Verify and Log In"</strong> button.</li>
               <li>This browser will automatically log in and redirect.</li>
@@ -263,18 +263,18 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col items-center gap-1 mb-6">
-            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-400 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full">
-              <RefreshCw className="animate-spin text-indigo-400" size={10} />
+            <div className="flex items-center gap-1.5 text-[10px] font-semibold text-foreground bg-secondary border border-border px-3 py-1.5 rounded-full">
+              <RefreshCw className="animate-spin text-indigo-500" size={10} />
               <span>Waiting for email validation...</span>
             </div>
-            <div className="text-[9px] text-gray-600 mt-1">
-              Link expires in: <span className="font-bold text-gray-400">{formatTimer()}</span>
+            <div className="text-[9px] text-muted-foreground mt-1">
+              Link expires in: <span className="font-bold text-foreground">{formatTimer()}</span>
             </div>
           </div>
 
           <button
             onClick={() => setIsWaitingLink(false)}
-            className="text-[10px] text-red-400/80 hover:text-red-400 font-bold uppercase tracking-wider transition underline"
+            className="text-[10px] text-red-400/80 hover:text-red-400 font-bold uppercase tracking-wider transition underline cursor-pointer"
           >
             Cancel and try again
           </button>

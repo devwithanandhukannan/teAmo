@@ -1,20 +1,121 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
 :root {
-  --background: #000000;
+  /* Default Theme: Light Mode */
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #4f46e5; /* Indigo 600 */
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #e2e8f0;
+  --border: rgba(15, 23, 42, 0.08);
+  --input: #ffffff;
+  --ring: #4f46e5;
+
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-card-bg: rgba(255, 255, 255, 0.45);
+  --glass-input-bg: rgba(15, 23, 42, 0.03);
+  --shadow-color: rgba(15, 23, 42, 0.05);
+  --focus-shadow: rgba(79, 70, 229, 0.1);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* System preference dark mode */
+    --background: #030712;
+    --foreground: #f3f4f6;
+    --card: #080a10;
+    --card-foreground: #f3f4f6;
+    --primary: #ffffff;
+    --primary-foreground: #000000;
+    --secondary: #11131a;
+    --secondary-foreground: #e5e7eb;
+    --muted: #181b24;
+    --muted-foreground: #9ca3af;
+    --accent: #1f2937;
+    --border: rgba(255, 255, 255, 0.08);
+    --input: #0b0d14;
+    --ring: #ffffff;
+
+    --glass-bg: rgba(10, 10, 10, 0.75);
+    --glass-card-bg: rgba(10, 10, 10, 0.45);
+    --glass-input-bg: rgba(0, 0, 0, 0.4);
+    --shadow-color: rgba(0, 0, 0, 0.5);
+    --focus-shadow: rgba(255, 255, 255, 0.05);
+    color-scheme: dark;
+  }
+}
+
+/* Class-based theme overrides when pinned */
+.light-theme {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #334155;
+  --muted: #f8fafc;
+  --muted-foreground: #64748b;
+  --accent: #e2e8f0;
+  --border: rgba(15, 23, 42, 0.08);
+  --input: #ffffff;
+  --ring: #4f46e5;
+
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-card-bg: rgba(255, 255, 255, 0.45);
+  --glass-input-bg: rgba(15, 23, 42, 0.03);
+  --shadow-color: rgba(15, 23, 42, 0.05);
+  --focus-shadow: rgba(79, 70, 229, 0.1);
+  color-scheme: light;
+}
+
+.dark-theme {
+  --background: #030712;
   --foreground: #f3f4f6;
-  --card: #0a0a0a;
+  --card: #080a10;
   --card-foreground: #f3f4f6;
   --primary: #ffffff;
   --primary-foreground: #000000;
-  --secondary: #111111;
-  --secondary-foreground: #f3f4f6;
-  --muted: #181818;
-  --muted-foreground: #888888;
-  --accent: #222222;
+  --secondary: #11131a;
+  --secondary-foreground: #e5e7eb;
+  --muted: #181b24;
+  --muted-foreground: #9ca3af;
+  --accent: #1f2937;
   --border: rgba(255, 255, 255, 0.08);
-  --input: #0f0f0f;
+  --input: #0b0d14;
   --ring: #ffffff;
+
+  --glass-bg: rgba(10, 10, 10, 0.75);
+  --glass-card-bg: rgba(10, 10, 10, 0.45);
+  --glass-input-bg: rgba(0, 0, 0, 0.4);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+  --focus-shadow: rgba(255, 255, 255, 0.05);
+  color-scheme: dark;
 }
 
 /* Incognito Owl Theme styling variables */
@@ -40,10 +141,12 @@ body {
 
 /* Minimalist Glassmorphism (Apple inspired) */
 .glass {
-  background: rgba(10, 10, 10, 0.7);
+  background: var(--glass-bg);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   border: 1px solid var(--border);
+  box-shadow: 0 4px 20px var(--shadow-color);
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 }
 
 .incognito-mode .glass {
@@ -52,12 +155,12 @@ body {
 }
 
 .glass-card {
-  background: rgba(10, 10, 10, 0.4);
+  background: var(--glass-card-bg);
   backdrop-filter: saturate(180%) blur(16px);
   -webkit-backdrop-filter: saturate(180%) blur(16px);
   border: 1px solid var(--border);
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.8);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 8px 32px var(--shadow-color);
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
 }
 
 .incognito-mode .glass-card {
@@ -66,7 +169,7 @@ body {
 }
 
 .glass-input {
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--glass-input-bg);
   border: 1px solid var(--border);
   color: var(--foreground);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -74,7 +177,7 @@ body {
 
 .glass-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 2px var(--focus-shadow);
   outline: none;
 }
 

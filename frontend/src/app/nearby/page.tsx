@@ -2,7 +2,7 @@
  
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Compass, Loader2, Sparkles, Navigation, ShieldCheck, Heart, UserPlus, Check, X } from 'lucide-react';
+import { Compass, Loader2, Navigation, ShieldCheck, Heart, UserPlus, Check, X } from 'lucide-react';
 import { useSocket } from '../../context/SocketContext';
 import { useToast } from '../../components/Toast';
 import { getBackendUrl } from '@/config';
@@ -173,17 +173,17 @@ export default function NearbyPage() {
   };
 
   return (
-    <div className="min-h-screen pt-32 pb-36 px-4 flex flex-col items-center bg-[#030712] relative overflow-hidden">
+    <div className="min-h-screen pt-40 pb-36 px-4 flex flex-col items-center bg-background relative overflow-hidden transition-colors duration-300">
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-pink-500/10 rounded-full blur-[120px] pointer-events-none"></div>
 
       <div className="w-full max-w-4xl flex flex-col gap-6 flex-1 justify-center items-center">
         
         <div className="text-center max-w-md">
-          <h2 className="text-2xl font-black text-white tracking-tight flex items-center justify-center gap-2">
-            <Compass size={24} className="text-indigo-400" /> Nearby Connections
+          <h2 className="text-2xl font-black text-foreground tracking-tight flex items-center justify-center gap-2">
+            <Compass size={24} className="text-indigo-500 dark:text-indigo-400" /> Nearby Connections
           </h2>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             Scan your geographic area to find other online matches looking for companions.
           </p>
         </div>
@@ -195,11 +195,11 @@ export default function NearbyPage() {
         )}
 
         {/* RADAR INTERACTION INTERFACE */}
-        <div className="relative h-64 w-64 md:h-80 md:w-80 rounded-full bg-gray-950/40 border border-gray-800 flex items-center justify-center overflow-hidden shadow-2xl">
+        <div className="relative h-64 w-64 md:h-80 md:w-80 rounded-full bg-secondary/40 border border-border flex items-center justify-center overflow-hidden shadow-2xl">
           {/* Radar background grid rings */}
-          <div className="absolute inset-8 rounded-full border border-gray-800/60"></div>
-          <div className="absolute inset-16 rounded-full border border-gray-800/40"></div>
-          <div className="absolute inset-28 rounded-full border border-gray-800/20"></div>
+          <div className="absolute inset-8 rounded-full border border-border/60"></div>
+          <div className="absolute inset-16 rounded-full border border-border/40"></div>
+          <div className="absolute inset-28 rounded-full border border-border/20"></div>
 
           {/* Scanning sweep hand */}
           {scanning && (
@@ -224,12 +224,12 @@ export default function NearbyPage() {
                   <div 
                     onClick={() => setSelectedUser(user)}
                     className={`h-10 w-10 rounded-full p-[2px] border overflow-hidden cursor-pointer hover:scale-110 transition shadow-lg ${
-                      selectedUser?.userId === user.userId ? 'bg-pink-500 border-white animate-pulse' : 'bg-indigo-500 border-gray-900'
+                      selectedUser?.userId === user.userId ? 'bg-pink-500 border-foreground animate-pulse' : 'bg-primary border-border'
                     }`}
                   >
-                    <img src={user.avatarUrl} alt="Avatar" className="h-full w-full rounded-full object-cover bg-gray-950" />
+                    <img src={user.avatarUrl} alt="Avatar" className="h-full w-full rounded-full object-cover bg-secondary" />
                   </div>
-                  <span className="absolute bottom-[-16px] left-1/2 -translate-x-1/2 bg-black/85 text-[8px] font-bold text-gray-300 border border-gray-800 px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition">
+                  <span className="absolute bottom-[-16px] left-1/2 -translate-x-1/2 bg-background/90 text-[8px] font-bold text-foreground border border-border px-1.5 py-0.5 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition">
                     {user.username} ({user.distance})
                   </span>
                 </div>
@@ -238,16 +238,16 @@ export default function NearbyPage() {
           })}
 
           {/* Local Center Node */}
-          <div className="h-10 w-10 rounded-full bg-indigo-600 flex items-center justify-center glow-primary z-20 border-2 border-white/10">
-            <Navigation size={18} className="text-white fill-white rotate-45" />
+          <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center glow-primary z-20 border-2 border-border">
+            <Navigation size={18} className="text-primary-foreground fill-primary-foreground rotate-45" />
           </div>
         </div>
 
         {/* Custom distance slider */}
-        <div className="w-full max-w-sm flex flex-col gap-2 bg-gray-950/40 border border-gray-800 p-4 rounded-2xl">
-          <div className="flex justify-between items-center text-xs font-bold text-gray-300">
+        <div className="w-full max-w-sm flex flex-col gap-2 bg-secondary/40 border border-border p-4 rounded-2xl">
+          <div className="flex justify-between items-center text-xs font-bold text-foreground">
             <span>Scan Proximity Limit</span>
-            <span className="text-indigo-400 font-mono">{distanceRadius} km</span>
+            <span className="text-primary font-mono">{distanceRadius} km</span>
           </div>
           <input
             type="range"
@@ -258,19 +258,19 @@ export default function NearbyPage() {
               setDistanceRadius(parseInt(e.target.value));
               setSelectedUser(null);
             }}
-            className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+            className="w-full h-1 bg-border rounded-lg appearance-none cursor-pointer accent-primary"
           />
-          <span className="text-[9px] text-gray-500">Find active users within the selected distance boundary.</span>
+          <span className="text-[9px] text-muted-foreground">Find active users within the selected distance boundary.</span>
         </div>
 
         {/* Selected User connection popover */}
         {selectedUser && (
-          <div className="w-full max-w-sm bg-gray-950/90 border border-indigo-500/25 p-4 rounded-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom duration-300 backdrop-blur-md">
+          <div className="w-full max-w-sm glass border border-border p-4 rounded-2xl flex items-center justify-between gap-4 animate-in fade-in slide-in-from-bottom duration-300 shadow-xl">
             <div className="flex items-center gap-3">
-              <img src={selectedUser.avatarUrl} alt="Avatar" className="h-10 w-10 rounded-full border border-white/10 bg-gray-900 object-cover" />
+              <img src={selectedUser.avatarUrl} alt="Avatar" className="h-10 w-10 rounded-full border border-border bg-secondary object-cover" />
               <div>
-                <h4 className="text-xs font-bold text-white uppercase">{selectedUser.username}</h4>
-                <p className="text-[10px] text-gray-400 mt-0.5">Proximity: {selectedUser.distance}</p>
+                <h4 className="text-xs font-bold text-foreground uppercase">{selectedUser.username}</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Proximity: {selectedUser.distance}</p>
               </div>
             </div>
             
@@ -281,13 +281,13 @@ export default function NearbyPage() {
                 </span>
               ) : requestingUserIds.includes(selectedUser.userId) ? (
                 <div className="flex gap-1.5 items-center">
-                  <span className="px-2.5 py-2 bg-white/5 border border-white/5 text-gray-400 rounded-xl text-[9px] font-bold animate-pulse">
+                  <span className="px-2.5 py-2 bg-secondary border border-border text-muted-foreground rounded-xl text-[9px] font-bold animate-pulse">
                     Requesting...
                   </span>
                   <button
                     type="button"
                     onClick={handleCancelRequest}
-                    className="px-2.5 py-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/20 rounded-xl text-[9px] font-black transition"
+                    className="px-2.5 py-2 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/20 rounded-xl text-[9px] font-black transition cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -296,7 +296,7 @@ export default function NearbyPage() {
                 <button
                   type="button"
                   onClick={handleConnectUser}
-                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black transition flex items-center gap-1"
+                  className="px-3.5 py-2 bg-primary hover:opacity-90 text-primary-foreground rounded-xl text-[10px] font-black transition flex items-center gap-1 cursor-pointer"
                 >
                   <UserPlus size={10} /> Connect
                 </button>

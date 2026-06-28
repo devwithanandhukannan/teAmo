@@ -5,6 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { Heart, UserPlus, Bell, X, Check, Phone, PhoneOff, Video } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getBackendUrl } from '@/config';
+import { useModal } from './ModalContext';
 
 interface UserInfo {
   _id: string;
@@ -77,6 +78,7 @@ interface SocketContextProps {
 const SocketContext = createContext<SocketContextProps | undefined>(undefined);
 
 export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { showAlert } = useModal();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineCount, setOnlineCount] = useState<number>(0);
   const [friends, setFriends] = useState<Friend[]>([]);
@@ -291,8 +293,8 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setGroupMessages(prev => [...prev, newMessage]);
     });
 
-    newSocket.on('banned', () => {
-      alert('Your account has been banned by the Administrator.');
+    newSocket.on('banned', async () => {
+      await showAlert('Account Banned', 'Your account has been banned by the Administrator.');
       localStorage.clear();
       window.location.href = '/login';
     });
