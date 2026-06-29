@@ -77,7 +77,8 @@ const getTransporter = async () => {
 // Functions to send emails
 const sendVerificationEmail = async (email, token) => {
   const config = await getTransporter();
-  const verifyUrl = `http://localhost:3000/verify-login?token=${token}&email=${email}`;
+  const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+  const verifyUrl = `${baseUrl}/verify-login?token=${token}&email=${email}`;
   
   if (!config) {
     console.log(`\n============================================\n[MOCK EMAIL WORKER FALLBACK]\nVerification Link for ${email} is:\n${verifyUrl}\n============================================\n`);

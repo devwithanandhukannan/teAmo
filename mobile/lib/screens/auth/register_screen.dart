@@ -66,10 +66,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_debounce?.isActive ?? false) _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () async {
       final email = _emailController.text.trim();
-      if (!email.contains('@')) {
-        setState(() => _emailError = null);
+      final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+      if (!emailRegex.hasMatch(email)) {
+        setState(() => _emailError = 'Enter a valid email address');
         return;
       }
+      setState(() => _emailError = null);
       setState(() => _isCheckingEmail = true);
       try {
         final res = await AuthService.checkExists(null, email);
