@@ -1,0 +1,111 @@
+services:
+  # Managed Redis
+  - type: redis
+    name: redis
+    ipAllowList: []
+    plan: free
+
+  # Private Service: MongoDB
+  - type: pserv
+    name: mongodb
+    env: image
+    image: 
+      url: docker.io/library/mongo:latest
+    disk:
+      name: mongo_data
+      mountPath: /data/db
+      sizeGB: 1
+
+  # Private Service: Auth Service
+  - type: pserv
+    name: auth-service
+    env: docker
+    dockerfilePath: ./microservices/auth-service/Dockerfile
+    dockerContext: ./microservices/auth-service
+    envVars:
+      - key: PORT
+        value: "5004"
+      - key: MONGODB_URI
+        value: "mongodb://mongodb:27017/stranger_match"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+
+  # Private Service: Chat Service
+  - type: pserv
+    name: chat-service
+    env: docker
+    dockerfilePath: ./microservices/chat-service/Dockerfile
+    dockerContext: ./microservices/chat-service
+    disk:
+      name: chat_uploads_data
+      mountPath: /app/public/uploads
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: "5003"
+      - key: MONGODB_URI
+        value: "mongodb://mongodb:27017/stranger_match"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+      - key: JWT_SECRET
+        fromService:
+          type: pserv
+          name: auth-service
+          envVarKey: JWT_SECRET
+
+  # Private Service: Notification Service
+  - type: pserv
+    name: notification-service
+    env: docker
+    dockerfilePath: ./microservices/notification-service/Dockerfile
+    dockerContext: ./microservices/notification-service
+    envVars:
+      - key: MONGODB_URI
+        value: "mongodb://mongodb:27017/stranger_match"
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: redis
+          property: connectionString
+      - key: ENCRYPTION_KEY
+        fromService:
+          type: pserv
+          name: auth-service
+          envVarKey: ENCRYPTION_KEY
+
+  # Web Service: Gateway
+  - type: web
+    name: gateway
+    env: docker
+    dockerfilePath: ./microservices/gateway/Dockerfile
+    dockerContext: ./microservices/gateway
+    envVars:
+      - key: PORT
+        value: "5001"
+      - key: AUTH_SERVICE_URL
+        value: "http://auth-service:5004"
+      - key: CHAT_SERVICE_URL
+        value: "http://chat-service:5003"
+
+  # Web Service: Frontend
+  - type: web
+    name: frontend
+    env: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: gateway
+          property: host

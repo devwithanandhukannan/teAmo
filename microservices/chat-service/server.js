@@ -47,6 +47,11 @@ app.use('/api/friends', friendsRoutes);
 app.use('/api/snaps', snapsRoutes);
 app.use('/api/notifications', notificationRoutes);
 
+// Serve static uploads
+app.use('/uploads', express.static(path.join(__dirname, '../../backend/public/uploads')));
+// When running inside a container, path should fall back to /app/public/uploads if it is mounted there
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
 // Health check route
 app.get('/health', (req, res) => {
   res.json({ status: 'UP', service: 'Chat & WebSockets Service' });

@@ -55,9 +55,12 @@ app.use(createProxyMiddleware({
   pathFilter: '/socket.io'
 }));
 
-// Serve static uploads
-const uploadsDir = path.join(__dirname, '../../backend/public/uploads');
-app.use('/uploads', express.static(uploadsDir));
+// Proxy static uploads to Chat Service
+app.use(createProxyMiddleware({
+  target: CHAT_SERVICE_URL,
+  changeOrigin: true,
+  pathFilter: '/uploads'
+}));
 
 // Index fallback
 app.get('/', (req, res) => {
